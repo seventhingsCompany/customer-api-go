@@ -262,15 +262,25 @@ Most list endpoints support pagination via `ListOptions.Page` and `ListOptions.P
 - **No rate limiting.** The client does not throttle requests.
 - **CircularityHub uses integer IDs** while all other modules use UUID strings.
 
-## Running Tests
+## Testing
 
-Unit tests:
+### Unit Tests
+
+Unit tests use `httptest.NewServer` to mock API responses — no network access required:
 
 ```sh
 go test ./...
 ```
 
-Integration tests (requires a live seventhings instance):
+Run a single test:
+
+```sh
+go test ./client -run TestObjectCreate
+```
+
+### Integration Tests
+
+Integration tests run against a live seventhings instance and are gated behind the `integration` build tag. They are skipped automatically when the required environment variables are not set.
 
 ```sh
 SEVENTHINGS_BASE_URL=https://example.seventhings.com \
@@ -279,6 +289,46 @@ SEVENTHINGS_PASSWORD=password \
 SEVENTHINGS_CLIENT_ID=client-id \
 go test -tags=integration -v ./...
 ```
+
+Run a specific integration test:
+
+```sh
+go test -tags=integration -v -run TestIntegrationLocationsCRUD ./...
+```
+
+### Integration Test Coverage
+
+| Area | Test | What it covers |
+|------|------|----------------|
+| **Auth** | `TestIntegrationAuth` | Login, token presence |
+| | `TestIntegrationAuthRefreshAndRevoke` | Refresh token flow, revoke tokens |
+| **Ping** | `TestIntegrationPing` | Unauthenticated health check |
+| **Objects** | `TestIntegrationObjects` | Full CRUD cycle (create, get, list, patch, delete) |
+| | `TestIntegrationObjectsListWithFilters` | `ListOptions` with `FilterEq` and `Sort` |
+| | `TestIntegrationObjectsCount` | Count with and without filters |
+| | `TestIntegrationObjectArchiveUnarchive` | Archive and unarchive lifecycle |
+| | `TestIntegrationObjectFiles` | Upload file, attach to object, remove from object |
+| **Locations** | `TestIntegrationLocationsCRUD` | Create, get, patch, list, count, delete |
+| **Rooms** | `TestIntegrationRoomsCRUD` | Create (with dynamic mandatory fields), get, patch, list, count, delete |
+| **Tasks** | `TestIntegrationTasks` | Full CRUD cycle |
+| | `TestIntegrationTaskUpdate` | Update title and comment via `TaskUpdate` |
+| | `TestIntegrationTaskStatusTransition` | Close and re-open via `TaskUpdateStatus` |
+| | `TestIntegrationTasksListWithFilters` | `TaskListOptions` with status, deadline range, reference type |
+| **Rentals** | `TestIntegrationRentals` | List rental cases |
+| | `TestIntegrationRentalsCRUD` | Create, get, update, list, delete (skips if instance schema doesn't support it) |
+| **Users** | `TestIntegrationUsers` | List users |
+| | `TestIntegrationUserGetAndOptions` | Get by UUID, get by ID, list with pagination and sort options |
+| **Files** | `TestIntegrationFiles` | List files |
+| | `TestIntegrationFileUploadAndDownload` | Upload, get metadata, download data and thumbnail |
+| **Field Definitions** | `TestIntegrationFieldDefinitions` | List field definitions |
+| | `TestIntegrationFieldDefinitionsCRUD` | Create, get, update, list for both asset and room templates |
+| **CircularityHub** | `TestIntegrationCircularityHub` | List items, list orders, suggest category |
+| | `TestIntegrationCircularityHubItemsCRUD` | Get and update an existing item |
+| | `TestIntegrationCircularityHubOrdersCRUD` | Create order from item IDs, get, update |
+| | `TestIntegrationCircularityHubAddObjects` | Add objects to CircularityHub (skips on server config issues) |
+| | `TestIntegrationCircularityHubSuggestRestPrice` | Suggest rest price endpoint |
+
+Some integration tests gracefully skip when the instance doesn't support a feature or lacks required configuration. All tests clean up after themselves using `t.Cleanup`.
 
 ## License
 
