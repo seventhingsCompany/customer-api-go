@@ -384,6 +384,26 @@ func TestNewWithCredentialsLoginFails(t *testing.T) {
 	}
 }
 
+func TestRefreshError401(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusUnauthorized)
+		_, _ = w.Write([]byte("Unauthorized"))
+	}))
+	defer server.Close()
+
+	c := newTestClient(t, server)
+	c.clientID = "my-client"
+
+	_, err := c.Refresh(context.Background(), "bad-refresh-token")
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	var apiErr *models.APIError
+	if !errors.As(err, &apiErr) || apiErr.StatusCode != 401 {
+		t.Errorf("expected 401 APIError, got %v", err)
+	}
+}
+
 func TestNewWithToken(t *testing.T) {
 	c := NewWithToken("https://example.seventhings.com", "pre-existing-token")
 	if c.Token() != "pre-existing-token" {

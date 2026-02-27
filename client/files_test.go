@@ -168,6 +168,106 @@ func TestFileGetThumbnail(t *testing.T) {
 	}
 }
 
+func TestFilesListError500(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+		_, _ = w.Write([]byte("internal error"))
+	}))
+	defer server.Close()
+
+	c := newTestClient(t, server)
+	c.SetToken("tok")
+
+	_, err := c.FilesList(context.Background())
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	var apiErr *models.APIError
+	if !errors.As(err, &apiErr) || apiErr.StatusCode != 500 {
+		t.Errorf("expected 500 APIError, got %v", err)
+	}
+}
+
+func TestFileUploadError500(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+		_, _ = w.Write([]byte("internal error"))
+	}))
+	defer server.Close()
+
+	c := newTestClient(t, server)
+	c.SetToken("tok")
+
+	_, err := c.FileUpload(context.Background(), "test.txt", bytes.NewBufferString("hello"))
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	var apiErr *models.APIError
+	if !errors.As(err, &apiErr) || apiErr.StatusCode != 500 {
+		t.Errorf("expected 500 APIError, got %v", err)
+	}
+}
+
+func TestFileUploadLocationUUIDHeader(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Location-UUID", "uuid-from-header")
+		w.Header().Set("Location", "/customer-api/v1/file/uuid-from-header/data")
+		w.WriteHeader(http.StatusCreated)
+	}))
+	defer server.Close()
+
+	c := newTestClient(t, server)
+	c.SetToken("tok")
+
+	uuid, err := c.FileUpload(context.Background(), "test.txt", bytes.NewBufferString("hello"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if uuid != "uuid-from-header" {
+		t.Errorf("expected uuid-from-header, got %q", uuid)
+	}
+}
+
+func TestFileGetDataError500(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+		_, _ = w.Write([]byte("internal error"))
+	}))
+	defer server.Close()
+
+	c := newTestClient(t, server)
+	c.SetToken("tok")
+
+	_, err := c.FileGetData(context.Background(), "f1")
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	var apiErr *models.APIError
+	if !errors.As(err, &apiErr) || apiErr.StatusCode != 500 {
+		t.Errorf("expected 500 APIError, got %v", err)
+	}
+}
+
+func TestFileGetThumbnailError500(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+		_, _ = w.Write([]byte("internal error"))
+	}))
+	defer server.Close()
+
+	c := newTestClient(t, server)
+	c.SetToken("tok")
+
+	_, err := c.FileGetThumbnail(context.Background(), "f1")
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	var apiErr *models.APIError
+	if !errors.As(err, &apiErr) || apiErr.StatusCode != 500 {
+		t.Errorf("expected 500 APIError, got %v", err)
+	}
+}
+
 func TestFileGetError404(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusNotFound)

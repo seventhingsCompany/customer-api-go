@@ -133,6 +133,46 @@ func TestUserGetByID(t *testing.T) {
 	}
 }
 
+func TestUsersListError500(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+		_, _ = w.Write([]byte("internal error"))
+	}))
+	defer server.Close()
+
+	c := newTestClient(t, server)
+	c.SetToken("tok")
+
+	_, err := c.UsersList(context.Background(), nil)
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	var apiErr *models.APIError
+	if !errors.As(err, &apiErr) || apiErr.StatusCode != 500 {
+		t.Errorf("expected 500 APIError, got %v", err)
+	}
+}
+
+func TestUserGetByIDError500(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+		_, _ = w.Write([]byte("internal error"))
+	}))
+	defer server.Close()
+
+	c := newTestClient(t, server)
+	c.SetToken("tok")
+
+	_, err := c.UserGetByID(context.Background(), 42)
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	var apiErr *models.APIError
+	if !errors.As(err, &apiErr) || apiErr.StatusCode != 500 {
+		t.Errorf("expected 500 APIError, got %v", err)
+	}
+}
+
 func TestUserGetError404(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusNotFound)

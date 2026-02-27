@@ -197,6 +197,67 @@ func TestRentalCaseDelete(t *testing.T) {
 	}
 }
 
+func TestRentalCasesListError500(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+		_, _ = w.Write([]byte("internal error"))
+	}))
+	defer server.Close()
+
+	c := newTestClient(t, server)
+	c.SetToken("tok")
+
+	_, err := c.RentalCasesList(context.Background(), nil)
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	var apiErr *models.APIError
+	if !errors.As(err, &apiErr) || apiErr.StatusCode != 500 {
+		t.Errorf("expected 500 APIError, got %v", err)
+	}
+}
+
+func TestRentalCaseCreateError500(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+		_, _ = w.Write([]byte("internal error"))
+	}))
+	defer server.Close()
+
+	c := newTestClient(t, server)
+	c.SetToken("tok")
+
+	_, err := c.RentalCaseCreate(context.Background(), models.CreateRentalCase{})
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	var apiErr *models.APIError
+	if !errors.As(err, &apiErr) || apiErr.StatusCode != 500 {
+		t.Errorf("expected 500 APIError, got %v", err)
+	}
+}
+
+func TestRentalCaseUpdateError500(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+		_, _ = w.Write([]byte("internal error"))
+	}))
+	defer server.Close()
+
+	c := newTestClient(t, server)
+	c.SetToken("tok")
+
+	comment := "updated"
+	err := c.RentalCaseUpdate(context.Background(), "rc1", models.UpdateRentalCase{Comment: &comment})
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	var apiErr *models.APIError
+	if !errors.As(err, &apiErr) || apiErr.StatusCode != 500 {
+		t.Errorf("expected 500 APIError, got %v", err)
+	}
+}
+
 func TestRentalCaseGetError404(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusNotFound)

@@ -307,6 +307,47 @@ func TestGetRawNoAcceptHeader(t *testing.T) {
 	}
 }
 
+func TestNewRequestInvalidURL(t *testing.T) {
+	c := &Client{
+		httpClient: http.DefaultClient,
+		baseURL:    "://bad",
+	}
+	c.SetToken("tok")
+
+	_, err := c.Get(context.Background(), "/items")
+	if err == nil {
+		t.Fatal("expected error for invalid URL")
+	}
+}
+
+func TestDoTransportError(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+	c := newTestClient(t, server)
+	c.SetToken("tok")
+	server.Close()
+
+	_, err := c.Get(context.Background(), "/items")
+	if err == nil {
+		t.Fatal("expected transport error")
+	}
+}
+
+func TestDoRawTransportError(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+	c := newTestClient(t, server)
+	c.SetToken("tok")
+	server.Close()
+
+	_, err := c.GetRaw(context.Background(), "/file/123/data")
+	if err == nil {
+		t.Fatal("expected transport error")
+	}
+}
+
 func TestPostMultipartContentType(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		ct := r.Header.Get("Content-Type")

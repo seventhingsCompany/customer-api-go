@@ -205,6 +205,127 @@ func TestCircularityHubItemGet(t *testing.T) {
 	}
 }
 
+func TestCircularityHubSuggestCategoryError500(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+		_, _ = w.Write([]byte("internal error"))
+	}))
+	defer server.Close()
+
+	c := newTestClient(t, server)
+	c.SetToken("tok")
+
+	_, err := c.CircularityHubSuggestCategory(context.Background(), models.FilterObject{})
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	var apiErr *models.APIError
+	if !errors.As(err, &apiErr) || apiErr.StatusCode != 500 {
+		t.Errorf("expected 500 APIError, got %v", err)
+	}
+}
+
+func TestCircularityHubSuggestCategoryEmpty(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`[]`))
+	}))
+	defer server.Close()
+
+	c := newTestClient(t, server)
+	c.SetToken("tok")
+
+	result, err := c.CircularityHubSuggestCategory(context.Background(), models.FilterObject{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result != nil {
+		t.Errorf("expected nil for empty array, got %v", result)
+	}
+}
+
+func TestCircularityHubSuggestRestPriceError500(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+		_, _ = w.Write([]byte("internal error"))
+	}))
+	defer server.Close()
+
+	c := newTestClient(t, server)
+	c.SetToken("tok")
+
+	_, err := c.CircularityHubSuggestRestPrice(context.Background(), map[string]string{"category": "Laptop"})
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	var apiErr *models.APIError
+	if !errors.As(err, &apiErr) || apiErr.StatusCode != 500 {
+		t.Errorf("expected 500 APIError, got %v", err)
+	}
+}
+
+func TestCircularityHubAddObjectsError500(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+		_, _ = w.Write([]byte("internal error"))
+	}))
+	defer server.Close()
+
+	c := newTestClient(t, server)
+	c.SetToken("tok")
+
+	err := c.CircularityHubAddObjects(context.Background(), map[string]models.AddObjectEntry{
+		"obj-1": {Category: "Chair", Price: "50.00"},
+	})
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	var apiErr *models.APIError
+	if !errors.As(err, &apiErr) || apiErr.StatusCode != 500 {
+		t.Errorf("expected 500 APIError, got %v", err)
+	}
+}
+
+func TestCircularityHubItemsListError500(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+		_, _ = w.Write([]byte("internal error"))
+	}))
+	defer server.Close()
+
+	c := newTestClient(t, server)
+	c.SetToken("tok")
+
+	_, err := c.CircularityHubItemsList(context.Background(), nil)
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	var apiErr *models.APIError
+	if !errors.As(err, &apiErr) || apiErr.StatusCode != 500 {
+		t.Errorf("expected 500 APIError, got %v", err)
+	}
+}
+
+func TestCircularityHubItemUpdateError500(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+		_, _ = w.Write([]byte("internal error"))
+	}))
+	defer server.Close()
+
+	c := newTestClient(t, server)
+	c.SetToken("tok")
+
+	err := c.CircularityHubItemUpdate(context.Background(), 42, map[string]any{"price": "99.00"})
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	var apiErr *models.APIError
+	if !errors.As(err, &apiErr) || apiErr.StatusCode != 500 {
+		t.Errorf("expected 500 APIError, got %v", err)
+	}
+}
+
 func TestCircularityHubItemGetError404(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusNotFound)
@@ -388,6 +509,66 @@ func TestCircularityHubOrderGet(t *testing.T) {
 	}
 	if !order.Completed {
 		t.Error("expected completed to be true")
+	}
+}
+
+func TestCircularityHubOrdersListError500(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+		_, _ = w.Write([]byte("internal error"))
+	}))
+	defer server.Close()
+
+	c := newTestClient(t, server)
+	c.SetToken("tok")
+
+	_, err := c.CircularityHubOrdersList(context.Background(), nil)
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	var apiErr *models.APIError
+	if !errors.As(err, &apiErr) || apiErr.StatusCode != 500 {
+		t.Errorf("expected 500 APIError, got %v", err)
+	}
+}
+
+func TestCircularityHubOrderCreateError500(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+		_, _ = w.Write([]byte("internal error"))
+	}))
+	defer server.Close()
+
+	c := newTestClient(t, server)
+	c.SetToken("tok")
+
+	_, err := c.CircularityHubOrderCreate(context.Background(), []int{1, 2})
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	var apiErr *models.APIError
+	if !errors.As(err, &apiErr) || apiErr.StatusCode != 500 {
+		t.Errorf("expected 500 APIError, got %v", err)
+	}
+}
+
+func TestCircularityHubOrderUpdateError500(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+		_, _ = w.Write([]byte("internal error"))
+	}))
+	defer server.Close()
+
+	c := newTestClient(t, server)
+	c.SetToken("tok")
+
+	err := c.CircularityHubOrderUpdate(context.Background(), 77, map[string]any{"completed": true})
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	var apiErr *models.APIError
+	if !errors.As(err, &apiErr) || apiErr.StatusCode != 500 {
+		t.Errorf("expected 500 APIError, got %v", err)
 	}
 }
 

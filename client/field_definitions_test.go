@@ -190,6 +190,74 @@ func TestFieldDefinitionUpdatePUT204(t *testing.T) {
 	}
 }
 
+func TestFieldDefinitionsListError500(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+		_, _ = w.Write([]byte("internal error"))
+	}))
+	defer server.Close()
+
+	c := newTestClient(t, server)
+	c.SetToken("tok")
+
+	_, err := c.FieldDefinitionsList(context.Background(), models.AssetTrackingTemplateAsset)
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	var apiErr *models.APIError
+	if !errors.As(err, &apiErr) || apiErr.StatusCode != 500 {
+		t.Errorf("expected 500 APIError, got %v", err)
+	}
+}
+
+func TestFieldDefinitionCreateError500(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+		_, _ = w.Write([]byte("internal error"))
+	}))
+	defer server.Close()
+
+	c := newTestClient(t, server)
+	c.SetToken("tok")
+
+	_, err := c.FieldDefinitionCreate(context.Background(), models.AssetTrackingTemplateAsset, models.CreateFieldDefinition{
+		FieldType: models.FieldDefinitionFieldType{Name: models.FieldTypeText},
+		Label:     "Name",
+	})
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	var apiErr *models.APIError
+	if !errors.As(err, &apiErr) || apiErr.StatusCode != 500 {
+		t.Errorf("expected 500 APIError, got %v", err)
+	}
+}
+
+func TestFieldDefinitionUpdateError500(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+		_, _ = w.Write([]byte("internal error"))
+	}))
+	defer server.Close()
+
+	c := newTestClient(t, server)
+	c.SetToken("tok")
+
+	err := c.FieldDefinitionUpdate(context.Background(), models.AssetTrackingTemplateAsset, "fd1", models.UpdateFieldDefinition{
+		UUID:      "fd1",
+		FieldKey:  "name",
+		FieldType: models.FieldDefinitionFieldType{Name: models.FieldTypeText},
+		Label:     "Updated",
+	})
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	var apiErr *models.APIError
+	if !errors.As(err, &apiErr) || apiErr.StatusCode != 500 {
+		t.Errorf("expected 500 APIError, got %v", err)
+	}
+}
+
 func TestFieldDefinitionGetError404(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusNotFound)
