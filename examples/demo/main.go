@@ -78,6 +78,39 @@ func main() {
 		log.Fatalf("[Objects] Expected 404 after deletion, got: %v", err)
 	}
 
+	// ── Filtered listing ─────────────────────────────────────────────────
+	section("Objects", "Fetching last 5 changed assets (sorted + filtered)…")
+
+	recentObjs, err := c.ObjectsList(ctx, &models.ListOptions{
+		Page:    1,
+		PerPage: 5,
+		Sort:    map[string]models.SortDirection{"updated_at": models.SortDESC},
+	})
+	mustDo(err)
+	pf("Objects", "Got %d recently changed asset(s):", len(recentObjs))
+	for i, obj := range recentObjs {
+		name, _ := obj["inventory_name"].(string)
+		updatedAt, _ := obj["updated_at"].(string)
+		pf("Objects", "  %d. %s (updated_at=%s)", i+1, name, updatedAt)
+	}
+
+	// Filter by name — find objects whose inventory_name contains "SDK"
+	section("Objects", "Filtering assets by name containing \"SDK\"…")
+
+	filtered, err := c.ObjectsList(ctx, &models.ListOptions{
+		Page:    1,
+		PerPage: 5,
+		Filters: []models.FilterEntry{
+			{Field: "inventory_name", Operator: models.FilterLike, Values: []string{"SDK"}},
+		},
+	})
+	mustDo(err)
+	pf("Objects", "Got %d asset(s) matching filter:", len(filtered))
+	for i, obj := range filtered {
+		name, _ := obj["inventory_name"].(string)
+		pf("Objects", "  %d. %s", i+1, name)
+	}
+
 	// ── Files ────────────────────────────────────────────────────────────
 	section("Files", "Uploading file…")
 
