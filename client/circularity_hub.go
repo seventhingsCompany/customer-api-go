@@ -10,7 +10,8 @@ import (
 )
 
 // CircularityHubSuggestCategory returns category suggestions based on the
-// given filter object.
+// given filter object. The API returns a JSON object when suggestions are
+// available and an empty array when there are none.
 func (c *Client) CircularityHubSuggestCategory(ctx context.Context, filter models.FilterObject) (map[string]string, error) {
 	body, err := json.Marshal(filter)
 	if err != nil {
@@ -19,6 +20,10 @@ func (c *Client) CircularityHubSuggestCategory(ctx context.Context, filter model
 	resp, err := c.Post(ctx, "circularity-hub/suggest-category", bytes.NewReader(body))
 	if err != nil {
 		return nil, err
+	}
+	// The API returns [] when no suggestions are available.
+	if len(resp.Body) > 0 && resp.Body[0] == '[' {
+		return nil, nil
 	}
 	var result map[string]string
 	if err := DecodeJSON(resp, &result); err != nil {
@@ -37,6 +42,10 @@ func (c *Client) CircularityHubSuggestRestPrice(ctx context.Context, input map[s
 	resp, err := c.Post(ctx, "circularity-hub/suggest-rest-price", bytes.NewReader(body))
 	if err != nil {
 		return nil, err
+	}
+	// The API returns [] when no suggestions are available.
+	if len(resp.Body) > 0 && resp.Body[0] == '[' {
+		return nil, nil
 	}
 	var result map[string]string
 	if err := DecodeJSON(resp, &result); err != nil {
