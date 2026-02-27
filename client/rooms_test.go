@@ -19,7 +19,7 @@ func TestRoomsList(t *testing.T) {
 			t.Errorf("unexpected query: %s", r.URL.RawQuery)
 		}
 		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte(`[{"uuid":"r1","name":"Room A"}]`))
+		_, _ = w.Write([]byte(`{"items":[{"uuid":"r1","name":"Room A"}]}`))
 	}))
 	defer server.Close()
 
@@ -41,7 +41,7 @@ func TestRoomsListNoPagination(t *testing.T) {
 			t.Errorf("expected no query string, got %q", r.URL.RawQuery)
 		}
 		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte(`[]`))
+		_, _ = w.Write([]byte(`{"items":[]}`))
 	}))
 	defer server.Close()
 

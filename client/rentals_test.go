@@ -21,7 +21,7 @@ func TestRentalCasesList(t *testing.T) {
 			t.Errorf("unexpected path: %s", r.URL.Path)
 		}
 		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte(`[{"uuid":"rc1","status":"borrowed","renter":"John"}]`))
+		_, _ = w.Write([]byte(`{"items":[{"uuid":"rc1","status":"borrowed","renter":"John"}]}`))
 	}))
 	defer server.Close()
 
@@ -46,7 +46,7 @@ func TestRentalCasesListWithOptions(t *testing.T) {
 			t.Errorf("unexpected query: %s", r.URL.RawQuery)
 		}
 		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte(`[]`))
+		_, _ = w.Write([]byte(`{"items":[]}`))
 	}))
 	defer server.Close()
 

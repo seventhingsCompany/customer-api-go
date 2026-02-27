@@ -32,11 +32,13 @@ func (c *Client) LocationsList(ctx context.Context, page, perPage int) ([]map[st
 	if err != nil {
 		return nil, err
 	}
-	var result []map[string]any
-	if err := DecodeJSON(resp, &result); err != nil {
+	var wrapper struct {
+		Items []map[string]any `json:"items"`
+	}
+	if err := DecodeJSON(resp, &wrapper); err != nil {
 		return nil, err
 	}
-	return result, nil
+	return wrapper.Items, nil
 }
 
 // LocationsCount returns the count of locations matching the given options.

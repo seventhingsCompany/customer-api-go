@@ -32,11 +32,13 @@ func (c *Client) RoomsList(ctx context.Context, page, perPage int) ([]map[string
 	if err != nil {
 		return nil, err
 	}
-	var result []map[string]any
-	if err := DecodeJSON(resp, &result); err != nil {
+	var wrapper struct {
+		Items []map[string]any `json:"items"`
+	}
+	if err := DecodeJSON(resp, &wrapper); err != nil {
 		return nil, err
 	}
-	return result, nil
+	return wrapper.Items, nil
 }
 
 // RoomsCount returns the count of rooms matching the given options.

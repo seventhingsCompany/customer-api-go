@@ -19,7 +19,7 @@ func TestFilesList(t *testing.T) {
 			t.Errorf("unexpected path: %s", r.URL.Path)
 		}
 		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte(`[{"uuid":"f1","name":"photo.jpg","type":"image/jpeg","size":1024}]`))
+		_, _ = w.Write([]byte(`{"items":[{"uuid":"f1","name":"photo.jpg","type":"image/jpeg","size":1024}]}`))
 	}))
 	defer server.Close()
 

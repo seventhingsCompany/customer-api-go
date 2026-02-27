@@ -65,11 +65,13 @@ func (c *Client) CircularityHubItemsList(ctx context.Context, opts *models.ListO
 	if err != nil {
 		return nil, err
 	}
-	var result []map[string]any
-	if err := DecodeJSON(resp, &result); err != nil {
+	var wrapper struct {
+		Items []map[string]any `json:"items"`
+	}
+	if err := DecodeJSON(resp, &wrapper); err != nil {
 		return nil, err
 	}
-	return result, nil
+	return wrapper.Items, nil
 }
 
 // CircularityHubItemGet returns a single CircularityHub item by integer ID.
@@ -111,11 +113,13 @@ func (c *Client) CircularityHubOrdersList(ctx context.Context, opts *models.List
 	if err != nil {
 		return nil, err
 	}
-	var result []models.CircularityHubOrder
-	if err := DecodeJSON(resp, &result); err != nil {
+	var wrapper struct {
+		Items []models.CircularityHubOrder `json:"items"`
+	}
+	if err := DecodeJSON(resp, &wrapper); err != nil {
 		return nil, err
 	}
-	return result, nil
+	return wrapper.Items, nil
 }
 
 // CircularityHubOrderCreate creates a new CircularityHub order from a list of

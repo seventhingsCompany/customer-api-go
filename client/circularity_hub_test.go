@@ -145,7 +145,7 @@ func TestCircularityHubItemsList(t *testing.T) {
 			t.Errorf("unexpected path: %s", r.URL.Path)
 		}
 		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte(`[{"id":1,"name":"Laptop"}]`))
+		_, _ = w.Write([]byte(`{"items":[{"id":1,"name":"Laptop"}]}`))
 	}))
 	defer server.Close()
 
@@ -167,7 +167,7 @@ func TestCircularityHubItemsListWithOptions(t *testing.T) {
 			t.Errorf("unexpected query: %s", r.URL.RawQuery)
 		}
 		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte(`[]`))
+		_, _ = w.Write([]byte(`{"items":[]}`))
 	}))
 	defer server.Close()
 
@@ -276,7 +276,7 @@ func TestCircularityHubOrdersList(t *testing.T) {
 			t.Errorf("unexpected path: %s", r.URL.Path)
 		}
 		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte(`[{"id":1,"order_number":"ORD-001","created_at":"2024-01-01","completed":false,"cancelled":false,"articles":[]}]`))
+		_, _ = w.Write([]byte(`{"items":[{"id":1,"order_number":"ORD-001","created_at":"2024-01-01","completed":false,"cancelled":false,"articles":[]}]}`))
 	}))
 	defer server.Close()
 
@@ -301,7 +301,7 @@ func TestCircularityHubOrdersListWithOptions(t *testing.T) {
 			t.Errorf("unexpected query: %s", r.URL.RawQuery)
 		}
 		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte(`[]`))
+		_, _ = w.Write([]byte(`{"items":[]}`))
 	}))
 	defer server.Close()
 

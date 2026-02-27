@@ -15,11 +15,13 @@ func (c *Client) FilesList(ctx context.Context) ([]models.File, error) {
 	if err != nil {
 		return nil, err
 	}
-	var result []models.File
-	if err := DecodeJSON(resp, &result); err != nil {
+	var wrapper struct {
+		Items []models.File `json:"items"`
+	}
+	if err := DecodeJSON(resp, &wrapper); err != nil {
 		return nil, err
 	}
-	return result, nil
+	return wrapper.Items, nil
 }
 
 // FileGet returns a single file's metadata by UUID.

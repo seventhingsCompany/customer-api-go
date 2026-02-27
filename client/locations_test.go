@@ -19,7 +19,7 @@ func TestLocationsList(t *testing.T) {
 			t.Errorf("unexpected query: %s", r.URL.RawQuery)
 		}
 		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte(`[{"uuid":"l1","name":"HQ"}]`))
+		_, _ = w.Write([]byte(`{"items":[{"uuid":"l1","name":"HQ"}]}`))
 	}))
 	defer server.Close()
 

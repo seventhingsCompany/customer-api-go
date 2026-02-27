@@ -18,11 +18,13 @@ func (c *Client) RentalCasesList(ctx context.Context, opts *models.ListOptions) 
 	if err != nil {
 		return nil, err
 	}
-	var result []models.RentalCase
-	if err := DecodeJSON(resp, &result); err != nil {
+	var wrapper struct {
+		Items []models.RentalCase `json:"items"`
+	}
+	if err := DecodeJSON(resp, &wrapper); err != nil {
 		return nil, err
 	}
-	return result, nil
+	return wrapper.Items, nil
 }
 
 // RentalCaseCreate creates a new rental case and returns its UUID.
