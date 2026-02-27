@@ -23,11 +23,11 @@ type refreshRequest struct {
 }
 
 type ssoLoginRequest struct {
-	GrantType    string                `json:"grant_type"`
+	GrantType    string                 `json:"grant_type"`
 	ProviderName models.SSOProviderName `json:"provider_name"`
-	AuthCode     string                `json:"auth_code"`
-	ClientID     string                `json:"client_id"`
-	AppTarget    *models.SSOAppTarget  `json:"app_target,omitempty"`
+	AuthCode     string                 `json:"auth_code"`
+	ClientID     string                 `json:"client_id"`
+	AppTarget    *models.SSOAppTarget   `json:"app_target,omitempty"`
 }
 
 const authTokenPath = "auth_token"

@@ -158,8 +158,8 @@ func main() {
 
 	deadline := "2026-12-31"
 	taskUUID := must(c.TaskCreate(ctx, models.CreateTask{
-		Title:    "SDK Demo Task",
-		Deadline: &deadline,
+		Title:     "SDK Demo Task",
+		Deadline:  &deadline,
 		Assignees: []string{currentUser.UUID},
 		References: []models.TaskReferenceInput{
 			{Type: models.TaskReferenceTypeAsset, UUID: taskObjUUID},

@@ -29,7 +29,7 @@ type CircularityHubOrder struct {
 	OrderNumber        string                     `json:"order_number"`
 	CreatedAt          string                     `json:"created_at"`
 	UserID             *int                       `json:"user_id"`
-	TotalPrice         *string                    `json:"total_price"`
+	TotalPrice         *float64                   `json:"total_price"`
 	Completed          bool                       `json:"completed"`
 	Cancelled          bool                       `json:"cancelled"`
 	CancellationReason *string                    `json:"cancellation_reason"`

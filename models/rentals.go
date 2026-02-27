@@ -61,17 +61,17 @@ type RentalCaseRenter struct {
 
 // RentalCase represents a rental case in the seventhings API.
 type RentalCase struct {
-	UUID               string                `json:"uuid"`
-	Status             RentalCaseStatus      `json:"status"`
-	Renter             *string               `json:"renter"`
-	References         []RentalCaseReference `json:"references"`
-	PickupDate         *string               `json:"pickup_date"`
-	ReturnDate         *string               `json:"return_date"`
-	Comment            *string               `json:"comment"`
-	RecurringSchedule  *TimeInterval         `json:"recurring_schedule"`
-	Attachments        []AttachmentFile      `json:"attachments"`
-	CreatedAt          string                `json:"created_at"`
-	UpdatedAt          string                `json:"updated_at"`
+	UUID              string                `json:"uuid"`
+	Status            RentalCaseStatus      `json:"status"`
+	Renter            *string               `json:"renter"`
+	References        []RentalCaseReference `json:"references"`
+	PickupDate        *string               `json:"pickup_date"`
+	ReturnDate        *string               `json:"return_date"`
+	Comment           *string               `json:"comment"`
+	RecurringSchedule *TimeInterval         `json:"recurring_schedule"`
+	Attachments       []AttachmentFile      `json:"attachments"`
+	CreatedAt         string                `json:"created_at"`
+	UpdatedAt         string                `json:"updated_at"`
 }
 
 // CreateRentalCase is the request body for creating a rental case.

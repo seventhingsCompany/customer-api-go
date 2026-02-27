@@ -80,19 +80,19 @@ type TaskReferenceInput struct {
 
 // Task represents a task in the seventhings API.
 type Task struct {
-	UUID               string          `json:"uuid"`
-	Title              string          `json:"title"`
-	Status             TaskStatus      `json:"status"`
-	Deadline           *string         `json:"deadline"`
-	Assignees          []string        `json:"assignees"`
-	Author             string          `json:"author"`
-	References         []TaskReference `json:"references"`
-	Reminders          []TimeInterval  `json:"reminders"`
-	RecurringSchedule  *TimeInterval   `json:"recurring_schedule"`
-	Comment            *string         `json:"comment"`
-	Attachments        []AttachmentFile `json:"attachments"`
-	CreatedAt          string          `json:"created_at"`
-	UpdatedAt          string          `json:"updated_at"`
+	UUID              string           `json:"uuid"`
+	Title             string           `json:"title"`
+	Status            TaskStatus       `json:"status"`
+	Deadline          *string          `json:"deadline"`
+	Assignees         []string         `json:"assignees"`
+	Author            string           `json:"author"`
+	References        []TaskReference  `json:"references"`
+	Reminders         []TimeInterval   `json:"reminders"`
+	RecurringSchedule *TimeInterval    `json:"recurring_schedule"`
+	Comment           *string          `json:"comment"`
+	Attachments       []AttachmentFile `json:"attachments"`
+	CreatedAt         string           `json:"created_at"`
+	UpdatedAt         string           `json:"updated_at"`
 }
 
 // CreateTask is the request body for creating a task.
