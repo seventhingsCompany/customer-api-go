@@ -1,6 +1,6 @@
 # seventhings Go SDK
 
-Go client library for the [seventhings](https://seventhings.cloud) customer API.
+Go client library for the [seventhings](https://seventhings.com) customer API.
 
 ## Installation
 
@@ -13,7 +13,7 @@ go get github.com/SeventhingsCompany/customer-api-go
 ### Password Authentication
 
 ```go
-c, err := client.NewWithCredentials(ctx, "https://example.seventhings.cloud", "user@example.com", "password", "client-id")
+c, err := client.NewWithCredentials(ctx, "https://example.seventhings.com", "user@example.com", "password", "client-id")
 if err != nil {
     log.Fatal(err)
 }
@@ -22,13 +22,13 @@ if err != nil {
 ### Pre-existing Token
 
 ```go
-c := client.NewWithToken("https://example.seventhings.cloud", "my-jwt-token")
+c := client.NewWithToken("https://example.seventhings.com", "my-jwt-token")
 ```
 
 ### Manual Login
 
 ```go
-c := client.New("https://example.seventhings.cloud")
+c := client.New("https://example.seventhings.com")
 tok, err := c.Login(ctx, "user@example.com", "password", "client-id")
 if err != nil {
     log.Fatal(err)
@@ -39,7 +39,7 @@ if err != nil {
 ### SSO Authentication
 
 ```go
-c := client.New("https://example.seventhings.cloud")
+c := client.New("https://example.seventhings.com")
 tok, err := c.LoginSSO(ctx, models.SSOProviderAzure, "auth-code", "client-id", nil)
 ```
 
@@ -273,7 +273,7 @@ go test ./...
 Integration tests (requires a live seventhings instance):
 
 ```sh
-SEVENTHINGS_BASE_URL=https://example.seventhings.cloud \
+SEVENTHINGS_BASE_URL=https://example.seventhings.com \
 SEVENTHINGS_USERNAME=user@example.com \
 SEVENTHINGS_PASSWORD=password \
 SEVENTHINGS_CLIENT_ID=client-id \
