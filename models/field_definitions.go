@@ -92,13 +92,27 @@ type FieldDefinition struct {
 	PossibleValues []any                    `json:"possible_values"`
 }
 
-// CreateFieldDefinition is the request body for creating or updating a field definition.
+// CreateFieldDefinition is the request body for creating a field definition.
 type CreateFieldDefinition struct {
 	FieldType      FieldDefinitionFieldType `json:"field_type"`
 	Label          string                   `json:"label"`
-	Attributes     []FieldAttribute         `json:"attributes,omitempty"`
-	Relations      []FieldRelation          `json:"relations,omitempty"`
-	Comment        *string                  `json:"comment,omitempty"`
-	DefaultValue   any                      `json:"default_value,omitempty"`
-	PossibleValues []any                    `json:"possible_values,omitempty"`
+	Attributes     []FieldAttribute         `json:"attributes"`
+	Relations      []FieldRelation          `json:"relations"`
+	Comment        *string                  `json:"comment"`
+	DefaultValue   any                      `json:"default_value"`
+	PossibleValues []any                    `json:"possible_values"`
+}
+
+// UpdateFieldDefinition is the request body for updating a field definition.
+// The PUT endpoint requires UUID and FieldKey in addition to the creation fields.
+type UpdateFieldDefinition struct {
+	UUID           string                   `json:"uuid"`
+	FieldKey       string                   `json:"field_key"`
+	FieldType      FieldDefinitionFieldType `json:"field_type"`
+	Label          string                   `json:"label"`
+	Attributes     []FieldAttribute         `json:"attributes"`
+	Relations      []FieldRelation          `json:"relations"`
+	Comment        *string                  `json:"comment"`
+	DefaultValue   any                      `json:"default_value"`
+	PossibleValues []any                    `json:"possible_values"`
 }

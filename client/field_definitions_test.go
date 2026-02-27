@@ -179,7 +179,9 @@ func TestFieldDefinitionUpdatePUT204(t *testing.T) {
 	c := newTestClient(t, server)
 	c.SetToken("tok")
 
-	err := c.FieldDefinitionUpdate(context.Background(), models.AssetTrackingTemplateAsset, "fd1", models.CreateFieldDefinition{
+	err := c.FieldDefinitionUpdate(context.Background(), models.AssetTrackingTemplateAsset, "fd1", models.UpdateFieldDefinition{
+		UUID:      "fd1",
+		FieldKey:  "name",
 		FieldType: models.FieldDefinitionFieldType{Name: models.FieldTypeText},
 		Label:     "Updated",
 	})

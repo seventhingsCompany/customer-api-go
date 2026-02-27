@@ -48,7 +48,7 @@ func (c *Client) FieldDefinitionGet(ctx context.Context, template models.AssetTr
 }
 
 // FieldDefinitionUpdate updates a field definition by UUID (PUT, returns 204).
-func (c *Client) FieldDefinitionUpdate(ctx context.Context, template models.AssetTrackingTemplate, uuid string, input models.CreateFieldDefinition) error {
+func (c *Client) FieldDefinitionUpdate(ctx context.Context, template models.AssetTrackingTemplate, uuid string, input models.UpdateFieldDefinition) error {
 	body, err := json.Marshal(input)
 	if err != nil {
 		return err
