@@ -263,7 +263,7 @@ if err != nil {
 
 ## Pagination
 
-Most list endpoints support pagination via `ListOptions.Page` and `ListOptions.PerPage`. Some endpoints (Users, Locations, Rooms) use dedicated pagination parameters.
+Most list endpoints support pagination via `ListOptions.Page` and `ListOptions.PerPage`. Users use a dedicated `UserListOptions` struct.
 
 ## Scope & Limitations
 
