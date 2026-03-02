@@ -80,6 +80,16 @@ err = c.ObjectDelete(ctx, uuid)
 // Archive / Unarchive
 err = c.ObjectArchive(ctx, uuid)
 err = c.ObjectUnarchive(ctx, uuid)
+
+// Attach files to an object
+resp, err := c.ObjectAddFiles(ctx, uuid, []models.FileAttachment{
+    {FieldKey: "photo", FileUUID: "file-uuid"},
+})
+
+// Remove files from an object
+resp, err = c.ObjectRemoveFiles(ctx, uuid, []models.FileAttachment{
+    {FieldKey: "photo", FileUUID: "file-uuid"},
+})
 ```
 
 ### Files
