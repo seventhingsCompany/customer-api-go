@@ -26,7 +26,7 @@ func TestRoomsList(t *testing.T) {
 	c := newTestClient(t, server)
 	c.SetToken("tok")
 
-	result, err := c.RoomsList(context.Background(), 1, 5)
+	result, err := c.RoomsList(context.Background(), &models.ListOptions{Page: 1, PerPage: 5})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -48,7 +48,7 @@ func TestRoomsListNoPagination(t *testing.T) {
 	c := newTestClient(t, server)
 	c.SetToken("tok")
 
-	_, err := c.RoomsList(context.Background(), 0, 0)
+	_, err := c.RoomsList(context.Background(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -170,7 +170,7 @@ func TestRoomsListError500(t *testing.T) {
 	c := newTestClient(t, server)
 	c.SetToken("tok")
 
-	_, err := c.RoomsList(context.Background(), 1, 5)
+	_, err := c.RoomsList(context.Background(), &models.ListOptions{Page: 1, PerPage: 5})
 	if err == nil {
 		t.Fatal("expected error")
 	}

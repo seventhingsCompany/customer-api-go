@@ -26,7 +26,7 @@ func TestLocationsList(t *testing.T) {
 	c := newTestClient(t, server)
 	c.SetToken("tok")
 
-	result, err := c.LocationsList(context.Background(), 2, 20)
+	result, err := c.LocationsList(context.Background(), &models.ListOptions{Page: 2, PerPage: 20})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -151,7 +151,7 @@ func TestLocationsListError500(t *testing.T) {
 	c := newTestClient(t, server)
 	c.SetToken("tok")
 
-	_, err := c.LocationsList(context.Background(), 1, 10)
+	_, err := c.LocationsList(context.Background(), &models.ListOptions{Page: 1, PerPage: 10})
 	if err == nil {
 		t.Fatal("expected error")
 	}

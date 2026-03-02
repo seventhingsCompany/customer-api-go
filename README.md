@@ -137,7 +137,7 @@ err = c.RentalCaseDelete(ctx, uuid)
 ### Locations
 
 ```go
-locations, err := c.LocationsList(ctx, 1, 25)
+locations, err := c.LocationsList(ctx, &models.ListOptions{Page: 1, PerPage: 25})
 uuid, err := c.LocationCreate(ctx, map[string]any{"name": "Building A"})
 loc, err := c.LocationGet(ctx, uuid)
 updated, err := c.LocationPatch(ctx, uuid, map[string]any{"name": "Building B"})
@@ -148,7 +148,7 @@ count, err := c.LocationsCount(ctx, nil)
 ### Rooms
 
 ```go
-rooms, err := c.RoomsList(ctx, 1, 25)
+rooms, err := c.RoomsList(ctx, &models.ListOptions{Page: 1, PerPage: 25})
 uuid, err := c.RoomCreate(ctx, map[string]any{"name": "Server Room"})
 room, err := c.RoomGet(ctx, uuid)
 updated, err := c.RoomPatch(ctx, uuid, map[string]any{"name": "Lab"})

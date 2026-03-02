@@ -4,29 +4,15 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"strconv"
 
 	"github.com/SeventhingsCompany/customer-api-go/models"
 )
 
-// LocationsList returns a paginated list of locations.
-func (c *Client) LocationsList(ctx context.Context, page, perPage int) ([]map[string]any, error) {
+// LocationsList returns a list of locations matching the given options.
+func (c *Client) LocationsList(ctx context.Context, opts *models.ListOptions) ([]map[string]any, error) {
 	p := "locations"
-	var params []string
-	if page != 0 {
-		params = append(params, "page="+strconv.Itoa(page))
-	}
-	if perPage != 0 {
-		params = append(params, "per_page="+strconv.Itoa(perPage))
-	}
-	if len(params) > 0 {
-		p += "?"
-		for i, param := range params {
-			if i > 0 {
-				p += "&"
-			}
-			p += param
-		}
+	if qs := opts.Encode(); qs != "" {
+		p += "?" + qs
 	}
 	resp, err := c.Get(ctx, p)
 	if err != nil {

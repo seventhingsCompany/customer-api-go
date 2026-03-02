@@ -396,7 +396,7 @@ func TestIntegrationLocationsCRUD(t *testing.T) {
 	}
 
 	// List
-	locations, err := c.LocationsList(ctx, 1, 10)
+	locations, err := c.LocationsList(ctx, &models.ListOptions{Page: 1, PerPage: 10})
 	if err != nil {
 		t.Fatalf("LocationsList: %v", err)
 	}
@@ -434,7 +434,7 @@ func TestIntegrationRoomsCRUD(t *testing.T) {
 	ctx := context.Background()
 
 	// A room requires a linked location (building_id). Find one first.
-	locations, err := c.LocationsList(ctx, 1, 1)
+	locations, err := c.LocationsList(ctx, &models.ListOptions{Page: 1, PerPage: 1})
 	if err != nil {
 		t.Fatalf("LocationsList: %v", err)
 	}
@@ -518,7 +518,7 @@ func TestIntegrationRoomsCRUD(t *testing.T) {
 	}
 
 	// List
-	rooms, err := c.RoomsList(ctx, 1, 10)
+	rooms, err := c.RoomsList(ctx, &models.ListOptions{Page: 1, PerPage: 10})
 	if err != nil {
 		t.Fatalf("RoomsList: %v", err)
 	}
@@ -1122,7 +1122,7 @@ func TestIntegrationLocations(t *testing.T) {
 	c := integrationClient(t)
 	ctx := context.Background()
 
-	locations, err := c.LocationsList(ctx, 0, 0)
+	locations, err := c.LocationsList(ctx, nil)
 	if err != nil {
 		t.Fatalf("LocationsList: %v", err)
 	}
@@ -1137,7 +1137,7 @@ func TestIntegrationRooms(t *testing.T) {
 	c := integrationClient(t)
 	ctx := context.Background()
 
-	rooms, err := c.RoomsList(ctx, 0, 0)
+	rooms, err := c.RoomsList(ctx, nil)
 	if err != nil {
 		t.Fatalf("RoomsList: %v", err)
 	}
