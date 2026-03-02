@@ -1,6 +1,6 @@
 # seventhings Go SDK
 
-Go client library for the [seventhings](https://seventhings.com) customer API.
+Go client library for the [seventhings](https://seventhings.com) customer API. See the [API documentation](https://api.seventhings.com/customer-api/v1/) for details on available endpoints.
 
 ## Installation
 
