@@ -9,7 +9,8 @@ import (
 	"github.com/SeventhingsCompany/customer-api-go/models"
 )
 
-// FilesList returns all files.
+// FilesList returns the most recent files. The API does not support pagination
+// and returns at most 20 files.
 func (c *Client) FilesList(ctx context.Context) ([]models.File, error) {
 	resp, err := c.Get(ctx, "files")
 	if err != nil {

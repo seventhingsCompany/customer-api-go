@@ -126,7 +126,8 @@ type TaskStatusUpdate struct {
 	Status TaskStatus `json:"status"`
 }
 
-// TaskListOptions configures filtering for task list requests.
+// TaskListOptions configures filtering for task list requests. The API does not
+// support pagination and returns up to 10,000 tasks.
 type TaskListOptions struct {
 	Status        *TaskStatus
 	DeadlineFrom  *string
