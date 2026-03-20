@@ -21,7 +21,7 @@ func TestRentalCasesList(t *testing.T) {
 			t.Errorf("unexpected path: %s", r.URL.Path)
 		}
 		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte(`{"items":[{"uuid":"rc1","status":"borrowed","renter":"John"}]}`))
+		_, _ = w.Write([]byte(`{"items":[{"uuid":"rc1","status":"borrowed","renter":{"type":"plain","value":"John"}}]}`))
 	}))
 	defer server.Close()
 
@@ -119,7 +119,7 @@ func TestRentalCaseGetWithRenterString(t *testing.T) {
 			t.Errorf("unexpected path: %s", r.URL.Path)
 		}
 		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte(`{"uuid":"rc1","status":"borrowed","renter":"John","created_at":"2024-01-01","updated_at":"2024-01-02"}`))
+		_, _ = w.Write([]byte(`{"uuid":"rc1","status":"borrowed","renter":{"type":"plain","value":"John"},"created_at":"2024-01-01","updated_at":"2024-01-02"}`))
 	}))
 	defer server.Close()
 
@@ -130,7 +130,7 @@ func TestRentalCaseGetWithRenterString(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if rc.Renter == nil || *rc.Renter != "John" {
+	if rc.Renter == nil || rc.Renter.Value != "John" {
 		t.Errorf("expected renter John, got %v", rc.Renter)
 	}
 }
@@ -169,8 +169,7 @@ func TestRentalCaseUpdatePUT204(t *testing.T) {
 	c := newTestClient(t, server)
 	c.SetToken("tok")
 
-	comment := "updated"
-	err := c.RentalCaseUpdate(context.Background(), "rc1", models.UpdateRentalCase{Comment: &comment})
+	err := c.RentalCaseUpdate(context.Background(), "rc1", models.UpdateRentalCase{Comment: "updated"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -247,8 +246,7 @@ func TestRentalCaseUpdateError500(t *testing.T) {
 	c := newTestClient(t, server)
 	c.SetToken("tok")
 
-	comment := "updated"
-	err := c.RentalCaseUpdate(context.Background(), "rc1", models.UpdateRentalCase{Comment: &comment})
+	err := c.RentalCaseUpdate(context.Background(), "rc1", models.UpdateRentalCase{Comment: "updated"})
 	if err == nil {
 		t.Fatal("expected error")
 	}

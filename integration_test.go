@@ -5,7 +5,6 @@ package seventhings_test
 import (
 	"bytes"
 	"context"
-	"errors"
 	"fmt"
 	"os"
 	"testing"
@@ -816,12 +815,20 @@ func TestIntegrationRentalsCRUD(t *testing.T) {
 		_ = c.ObjectDelete(ctx, refUUID)
 	})
 
-	pickup := "2099-01-01"
-	ret := "2099-06-01"
-	comment := "integration test rental"
+	// Get a user UUID for responsible_user_uuid
+	perPage := 1
+	usersResp, err := c.UsersList(ctx, &models.UserListOptions{PerPage: &perPage})
+	if err != nil {
+		t.Fatalf("UsersList: %v", err)
+	}
+	if len(usersResp.Items) == 0 {
+		t.Fatal("no users found for responsible_user_uuid")
+	}
+	userUUID := usersResp.Items[0].UUID
 
-	// Create — some instances may have stricter schema validation for rental cases.
+	// Create
 	uuid, err := c.RentalCaseCreate(ctx, models.CreateRentalCase{
+		Title: "Integration Test Rental",
 		Renter: &models.RentalCaseRenter{
 			Type:  models.RenterTypePlain,
 			Value: "Integration Tester",
@@ -829,12 +836,14 @@ func TestIntegrationRentalsCRUD(t *testing.T) {
 		References: []models.RentalCaseReferenceInput{
 			{Type: models.RentalCaseReferenceTypeAsset, UUID: refUUID},
 		},
-		PickupDate: &pickup,
-		ReturnDate: &ret,
-		Comment:    &comment,
+		IssueDate:           "2099-01-01",
+		DueDate:             "2099-06-01",
+		Comment:             "integration test rental",
+		ResponsibleUserUUID: userUUID,
+		Attachments:         []string{},
 	})
 	if err != nil {
-		t.Skipf("RentalCaseCreate not supported on this instance: %v", err)
+		t.Fatalf("RentalCaseCreate: %v", err)
 	}
 	t.Cleanup(func() {
 		_ = c.RentalCaseDelete(ctx, uuid)
@@ -850,8 +859,8 @@ func TestIntegrationRentalsCRUD(t *testing.T) {
 	}
 
 	// Update
-	updatedComment := "updated rental comment"
 	err = c.RentalCaseUpdate(ctx, uuid, models.UpdateRentalCase{
+		Title: "Updated Integration Test Rental",
 		Renter: &models.RentalCaseRenter{
 			Type:  models.RenterTypePlain,
 			Value: "Updated Tester",
@@ -859,9 +868,11 @@ func TestIntegrationRentalsCRUD(t *testing.T) {
 		References: []models.RentalCaseReferenceInput{
 			{Type: models.RentalCaseReferenceTypeAsset, UUID: refUUID},
 		},
-		PickupDate: &pickup,
-		ReturnDate: &ret,
-		Comment:    &updatedComment,
+		IssueDate:           "2099-01-01",
+		DueDate:             "2099-06-01",
+		Comment:             "updated rental comment",
+		ResponsibleUserUUID: userUUID,
+		Attachments:         []string{},
 	})
 	if err != nil {
 		t.Fatalf("RentalCaseUpdate: %v", err)
@@ -1281,10 +1292,12 @@ func TestIntegrationCircularityHubAddObjects(t *testing.T) {
 	c := integrationClient(t)
 	ctx := context.Background()
 
-	// Create a temporary object
+	// Create a temporary object — purchasing_price is required for CHUB to
+	// process the object without an "Array to string conversion" error.
 	objUUID, err := c.ObjectCreate(ctx, map[string]any{
-		"inventory_name": "ch-add-obj-" + uniqueSuffix(),
-		"barcode":        "INT-CHADD-" + uniqueSuffix(),
+		"inventory_name":  "ch-add-obj-" + uniqueSuffix(),
+		"barcode":         "INT-CHADD-" + uniqueSuffix(),
+		"purchasing_price": 100.00,
 	})
 	if err != nil {
 		t.Fatalf("ObjectCreate: %v", err)
@@ -1293,20 +1306,13 @@ func TestIntegrationCircularityHubAddObjects(t *testing.T) {
 		_ = c.ObjectDelete(ctx, objUUID)
 	})
 
-	// Note: This may fail on instances where CircularityHub requires specific
-	// object configuration (e.g., category fields). We treat server errors as
-	// a skip rather than a failure.
 	err = c.CircularityHubAddObjects(ctx, map[string]models.AddObjectEntry{
 		objUUID: {
-			Category: "test-category",
+			Category: "category_furniture",
 			Price:    "10.00",
 		},
 	})
 	if err != nil {
-		var apiErr *models.APIError
-		if errors.As(err, &apiErr) && apiErr.StatusCode >= 500 {
-			t.Skipf("CircularityHubAddObjects: server error (may require specific instance config): %v", err)
-		}
 		t.Fatalf("CircularityHubAddObjects: %v", err)
 	}
 }
