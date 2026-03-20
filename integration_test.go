@@ -1292,10 +1292,12 @@ func TestIntegrationCircularityHubAddObjects(t *testing.T) {
 	c := integrationClient(t)
 	ctx := context.Background()
 
-	// Create a temporary object
+	// Create a temporary object — purchasing_price is required for CHUB to
+	// process the object without an "Array to string conversion" error.
 	objUUID, err := c.ObjectCreate(ctx, map[string]any{
-		"inventory_name": "ch-add-obj-" + uniqueSuffix(),
-		"barcode":        "INT-CHADD-" + uniqueSuffix(),
+		"inventory_name":  "ch-add-obj-" + uniqueSuffix(),
+		"barcode":         "INT-CHADD-" + uniqueSuffix(),
+		"purchasing_price": 100.00,
 	})
 	if err != nil {
 		t.Fatalf("ObjectCreate: %v", err)
@@ -1304,20 +1306,13 @@ func TestIntegrationCircularityHubAddObjects(t *testing.T) {
 		_ = c.ObjectDelete(ctx, objUUID)
 	})
 
-	// Note: This may fail on instances where CircularityHub requires specific
-	// object configuration (e.g., category fields). We treat server errors as
-	// a skip rather than a failure.
 	err = c.CircularityHubAddObjects(ctx, map[string]models.AddObjectEntry{
 		objUUID: {
-			Category: "test-category",
+			Category: "category_furniture",
 			Price:    "10.00",
 		},
 	})
 	if err != nil {
-		var apiErr *models.APIError
-		if errors.As(err, &apiErr) && apiErr.StatusCode >= 500 {
-			t.Skipf("CircularityHubAddObjects: server error (may require specific instance config): %v", err)
-		}
 		t.Fatalf("CircularityHubAddObjects: %v", err)
 	}
 }
