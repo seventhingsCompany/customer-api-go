@@ -53,45 +53,62 @@ type RentalCaseReferenceInput struct {
 }
 
 // RentalCaseRenter specifies the renter in a rental case request.
-// Input is an object with type and value; output is a plain string.
 type RentalCaseRenter struct {
+	Type  RenterType `json:"type"`
+	Value string     `json:"value"`
+}
+
+// RentalCaseRenterResponse represents the renter in a rental case response.
+// The API returns renter as an object with type and value (same shape as input),
+// or null when no renter is set.
+type RentalCaseRenterResponse struct {
 	Type  RenterType `json:"type"`
 	Value string     `json:"value"`
 }
 
 // RentalCase represents a rental case in the seventhings API.
 type RentalCase struct {
-	UUID              string                `json:"uuid"`
-	Status            RentalCaseStatus      `json:"status"`
-	Renter            *string               `json:"renter"`
-	References        []RentalCaseReference `json:"references"`
-	PickupDate        *string               `json:"pickup_date"`
-	ReturnDate        *string               `json:"return_date"`
-	Comment           *string               `json:"comment"`
-	RecurringSchedule *TimeInterval         `json:"recurring_schedule"`
-	Attachments       []AttachmentFile      `json:"attachments"`
-	CreatedAt         string                `json:"created_at"`
-	UpdatedAt         string                `json:"updated_at"`
+	UUID                string                    `json:"uuid"`
+	Status              RentalCaseStatus          `json:"status"`
+	Title               string                    `json:"title"`
+	Renter              *RentalCaseRenterResponse `json:"renter"`
+	References          []RentalCaseReference     `json:"references"`
+	IssueDate           *string                   `json:"issue_date"`
+	IssueDateReminder   *TimeInterval             `json:"issue_date_reminder"`
+	DueDate             *string                   `json:"due_date"`
+	DueDateReminder     *TimeInterval             `json:"due_date_reminder"`
+	Comment             *string                   `json:"comment"`
+	ResponsibleUserUUID *string                   `json:"responsible_user_uuid"`
+	Author              *string                   `json:"author"`
+	Attachments         []AttachmentFile          `json:"attachments"`
+	CreatedAt           string                    `json:"created_at"`
+	UpdatedAt           string                    `json:"updated_at"`
 }
 
 // CreateRentalCase is the request body for creating a rental case.
 type CreateRentalCase struct {
-	Renter            *RentalCaseRenter          `json:"renter,omitempty"`
-	References        []RentalCaseReferenceInput `json:"references,omitempty"`
-	PickupDate        *string                    `json:"pickup_date,omitempty"`
-	ReturnDate        *string                    `json:"return_date,omitempty"`
-	Comment           *string                    `json:"comment,omitempty"`
-	RecurringSchedule *TimeInterval              `json:"recurring_schedule,omitempty"`
-	Attachments       []string                   `json:"attachments,omitempty"`
+	Title               string                     `json:"title"`
+	Renter              *RentalCaseRenter          `json:"renter"`
+	References          []RentalCaseReferenceInput `json:"references"`
+	IssueDate           string                     `json:"issue_date"`
+	IssueDateReminder   *TimeInterval              `json:"issue_date_reminder,omitempty"`
+	DueDate             string                     `json:"due_date"`
+	DueDateReminder     *TimeInterval              `json:"due_date_reminder,omitempty"`
+	Comment             string                     `json:"comment"`
+	ResponsibleUserUUID string                     `json:"responsible_user_uuid"`
+	Attachments         []string                   `json:"attachments"`
 }
 
 // UpdateRentalCase is the request body for updating a rental case.
 type UpdateRentalCase struct {
-	Renter            *RentalCaseRenter          `json:"renter,omitempty"`
-	References        []RentalCaseReferenceInput `json:"references,omitempty"`
-	PickupDate        *string                    `json:"pickup_date,omitempty"`
-	ReturnDate        *string                    `json:"return_date,omitempty"`
-	Comment           *string                    `json:"comment,omitempty"`
-	RecurringSchedule *TimeInterval              `json:"recurring_schedule,omitempty"`
-	Attachments       []string                   `json:"attachments,omitempty"`
+	Title               string                     `json:"title"`
+	Renter              *RentalCaseRenter          `json:"renter"`
+	References          []RentalCaseReferenceInput `json:"references"`
+	IssueDate           string                     `json:"issue_date"`
+	IssueDateReminder   *TimeInterval              `json:"issue_date_reminder,omitempty"`
+	DueDate             string                     `json:"due_date"`
+	DueDateReminder     *TimeInterval              `json:"due_date_reminder,omitempty"`
+	Comment             string                     `json:"comment"`
+	ResponsibleUserUUID string                     `json:"responsible_user_uuid"`
+	Attachments         []string                   `json:"attachments"`
 }
