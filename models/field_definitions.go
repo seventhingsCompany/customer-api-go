@@ -8,6 +8,8 @@ const (
 	AssetTrackingTemplateAsset AssetTrackingTemplate = "asset"
 	// AssetTrackingTemplateRoom is the room template.
 	AssetTrackingTemplateRoom AssetTrackingTemplate = "room"
+	// AssetTrackingTemplatePerson is the person template.
+	AssetTrackingTemplatePerson AssetTrackingTemplate = "person"
 )
 
 // FieldTypeName identifies the type of a field definition.
