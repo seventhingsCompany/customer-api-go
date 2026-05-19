@@ -38,6 +38,8 @@ const (
 	FieldTypeLinkedAssets FieldTypeName = "LINKED_ASSETS"
 	// FieldTypeLinkedLocation is a linked location field.
 	FieldTypeLinkedLocation FieldTypeName = "LINKED_LOCATION"
+	// FieldTypeLinkedPerson is a linked person field.
+	FieldTypeLinkedPerson FieldTypeName = "LINKED_PERSON"
 	// FieldTypeLinkedRoom is a linked room field.
 	FieldTypeLinkedRoom FieldTypeName = "LINKED_ROOM"
 	// FieldTypeLinkedUser is a linked user field.
