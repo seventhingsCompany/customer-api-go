@@ -1,5 +1,6 @@
 // Command demo exercises the core seventhings SDK modules (Auth, Objects,
-// Files, Tasks) against a real instance. Configure via environment variables:
+// Files, Tasks, Persons) against a real instance. Configure via environment
+// variables:
 //
 //	SEVENTHINGS_BASE_URL   — e.g. https://example.seventhings.com
 //	SEVENTHINGS_USERNAME   — login username
@@ -187,6 +188,52 @@ func main() {
 	// Clean up reference object
 	mustDo(c.ObjectDelete(ctx, taskObjUUID))
 	pf("Tasks", "Deleted reference object %s", taskObjUUID)
+
+	// ── Persons (read-only) ──────────────────────────────────────────────
+	// The customer API exposes no DELETE for persons, so this demo only
+	// reads. Create/CreateUser examples:
+	//
+	//   uuid, err := c.PersonCreate(ctx, map[string]any{
+	//       "email": "new.person@example.com", "first_name": "New", "last_name": "Person",
+	//   })
+	//   err = c.PersonCreateUser(ctx, models.FilterObject{
+	//       Filter: map[string]map[models.FilterOperator]any{
+	//           "email": {models.FilterEq: "new.person@example.com"},
+	//       },
+	//   })
+	section("Persons", "Listing persons…")
+
+	personPerPage := 5
+	personSortBy := "id"
+	personOrder := models.UserSortOrderAsc
+	personPage := 1
+	personResp, err := c.PersonsList(ctx, &models.PersonListOptions{
+		Page:    &personPage,
+		PerPage: &personPerPage,
+		SortBy:  &personSortBy,
+		Order:   &personOrder,
+	})
+	mustDo(err)
+	pf("Persons", "Got %d person(s) (page 1, max 5):", len(personResp.Items))
+	for i, p := range personResp.Items {
+		first, last := "", ""
+		if p.Firstname != nil {
+			first = *p.Firstname
+		}
+		if p.Lastname != nil {
+			last = *p.Lastname
+		}
+		pf("Persons", "  %d. id=%d uuid=%s %s %s <%s>", i+1, p.ID, p.UUID, first, last, p.Email)
+	}
+
+	if len(personResp.Items) > 0 {
+		first := personResp.Items[0]
+		byUUID := must(c.PersonGet(ctx, first.UUID))
+		pf("Persons", "PersonGet(%s) → id=%d email=%s", first.UUID, byUUID.ID, byUUID.Email)
+
+		byID := must(c.PersonGetByID(ctx, first.ID))
+		pf("Persons", "PersonGetByID(%d) → uuid=%s email=%s", first.ID, byID.UUID, byID.Email)
+	}
 
 	// ── Auth cleanup ─────────────────────────────────────────────────────
 	section("Auth", "Revoking tokens…")

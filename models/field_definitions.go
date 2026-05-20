@@ -8,6 +8,8 @@ const (
 	AssetTrackingTemplateAsset AssetTrackingTemplate = "asset"
 	// AssetTrackingTemplateRoom is the room template.
 	AssetTrackingTemplateRoom AssetTrackingTemplate = "room"
+	// AssetTrackingTemplatePerson is the person template.
+	AssetTrackingTemplatePerson AssetTrackingTemplate = "person"
 )
 
 // FieldTypeName identifies the type of a field definition.
@@ -36,6 +38,8 @@ const (
 	FieldTypeLinkedAssets FieldTypeName = "LINKED_ASSETS"
 	// FieldTypeLinkedLocation is a linked location field.
 	FieldTypeLinkedLocation FieldTypeName = "LINKED_LOCATION"
+	// FieldTypeLinkedPerson is a linked person field.
+	FieldTypeLinkedPerson FieldTypeName = "LINKED_PERSON"
 	// FieldTypeLinkedRoom is a linked room field.
 	FieldTypeLinkedRoom FieldTypeName = "LINKED_ROOM"
 	// FieldTypeLinkedUser is a linked user field.

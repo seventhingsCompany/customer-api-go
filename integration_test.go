@@ -1331,3 +1331,154 @@ func TestIntegrationCircularityHubSuggestRestPrice(t *testing.T) {
 		t.Fatalf("CircularityHubSuggestRestPrice: %v", err)
 	}
 }
+
+// ---------------------------------------------------------------------------
+// Persons — list, get-by-uuid, get-by-id
+// ---------------------------------------------------------------------------
+
+func TestIntegrationPersonsListAndGet(t *testing.T) {
+	c := integrationClient(t)
+	ctx := context.Background()
+
+	page := 1
+	perPage := 5
+	sortBy := "id"
+	order := models.UserSortOrderAsc
+
+	resp, err := c.PersonsList(ctx, &models.PersonListOptions{
+		Page:    &page,
+		PerPage: &perPage,
+		SortBy:  &sortBy,
+		Order:   &order,
+	})
+	if err != nil {
+		t.Fatalf("PersonsList with options: %v", err)
+	}
+	if len(resp.Items) == 0 {
+		t.Skip("no persons on instance; skipping get-by-uuid and get-by-id checks")
+	}
+
+	first := resp.Items[0]
+
+	byUUID, err := c.PersonGet(ctx, first.UUID)
+	if err != nil {
+		t.Fatalf("PersonGet: %v", err)
+	}
+	if byUUID.UUID != first.UUID {
+		t.Errorf("expected UUID %q, got %q", first.UUID, byUUID.UUID)
+	}
+
+	byID, err := c.PersonGetByID(ctx, first.ID)
+	if err != nil {
+		t.Fatalf("PersonGetByID: %v", err)
+	}
+	if byID.ID != first.ID {
+		t.Errorf("expected ID %d, got %d", first.ID, byID.ID)
+	}
+	if byID.UUID != first.UUID {
+		t.Errorf("expected UUID %q from GetByID, got %q", first.UUID, byID.UUID)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Persons — create + create-user
+//
+// Note: the customer API does not expose a DELETE endpoint for persons.
+// Records created here remain on the instance — use a non-production
+// instance for these tests.
+// ---------------------------------------------------------------------------
+
+func TestIntegrationPersonCreateAndCreateUser(t *testing.T) {
+	c := integrationClient(t)
+	ctx := context.Background()
+
+	suffix := uniqueSuffix()
+	email := "sdk-int-" + suffix + "@example.test"
+
+	personFields := map[string]any{
+		"email":      email,
+		"first_name": "SDK",
+		"last_name":  "Integration " + suffix,
+	}
+
+	// System-managed fields that are reported as mandatory by field-definitions
+	// but must not be sent on POST. The server fills these in.
+	systemFields := map[string]bool{
+		"id":                                true,
+		"uuid":                              true,
+		"person_uuid":                       true,
+		"user_uuid":                         true,
+		"created_at":                        true,
+		"updated_at":                        true,
+		"updated_by_user_id":                true,
+		"imported_by_user_id":               true,
+		"imported_with_template_id":         true,
+		"imported_at":                       true,
+		"created_on_import_with_template_id": true,
+	}
+
+	// Best-effort: discover any *real* mandatory person fields and synthesise
+	// values. System fields are skipped.
+	defs, err := c.FieldDefinitionsList(ctx, models.AssetTrackingTemplatePerson)
+	if err == nil {
+		for _, d := range defs {
+			mandatory := false
+			for _, attr := range d.Attributes {
+				if attr.Type == "mandatory" && attr.Value == "yes" {
+					mandatory = true
+					break
+				}
+			}
+			if !mandatory {
+				continue
+			}
+			if systemFields[d.FieldKey] {
+				continue
+			}
+			if _, exists := personFields[d.FieldKey]; exists {
+				continue
+			}
+			switch d.FieldType.Name {
+			case models.FieldTypeDropdown:
+				for _, con := range d.FieldType.Constraints {
+					if con.Type == "allowed_values" {
+						if vals, ok := con.Value.([]any); ok && len(vals) > 0 {
+							personFields[d.FieldKey] = vals[0]
+						}
+					}
+				}
+			case models.FieldTypeText, models.FieldTypeLongText:
+				personFields[d.FieldKey] = "int-" + suffix
+			default:
+				t.Skipf("mandatory person field %q of type %q not auto-fillable", d.FieldKey, d.FieldType.Name)
+			}
+		}
+	}
+
+	uuid, err := c.PersonCreate(ctx, personFields)
+	if err != nil {
+		t.Fatalf("PersonCreate: %v", err)
+	}
+	if uuid == "" {
+		t.Fatal("expected non-empty UUID from Location header")
+	}
+
+	// Verify the new person is retrievable.
+	person, err := c.PersonGet(ctx, uuid)
+	if err != nil {
+		t.Fatalf("PersonGet after create: %v", err)
+	}
+	if person.Email != email {
+		t.Errorf("expected email %q, got %q", email, person.Email)
+	}
+
+	// Trigger user creation by filtering on the unique email.
+	err = c.PersonCreateUser(ctx, models.FilterObject{
+		Filter: map[string]map[models.FilterOperator]any{
+			"email": {models.FilterEq: email},
+		},
+	})
+	if err != nil {
+		t.Fatalf("PersonCreateUser: %v", err)
+	}
+}
