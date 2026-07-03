@@ -57,7 +57,14 @@ These two calls demonstrate how to use `ListOptions` with `Sort` and `Filters`.
 - Closes the task, deletes it, and confirms a 404
 - Cleans up the reference object
 
-### 6. Auth cleanup
+### 6. Persons
+
+- Counts all persons and lists the first page (max 5)
+- Looks up the first person by UUID and by numeric ID
+- Creates a person, patches its department, deletes it, and confirms a 404
+- Shows (commented out) how `PersonCreateUser` promotes a person to a login user
+
+### 7. Auth cleanup
 
 Revokes all tokens for the session.
 
@@ -98,6 +105,17 @@ Revokes all tokens for the session.
 ── Tasks ──────────────────────────────────────────
 [Tasks  ] Creating task…
 ...
+
+── Persons ──────────────────────────────────────────
+[Persons] Counting and listing persons…
+[Persons] PersonsCount() → 12 person(s)
+[Persons] Got 5 person(s) (page 1, max 5):
+[Persons]   1. id=1 uuid=<uuid> Alice Smith <alice@example.com>
+...
+[Persons] Created person <uuid> <sdk.demo+…@example.com>
+[Persons] Patched person <uuid> (department=Engineering)
+[Persons] Deleted person <uuid>
+[Persons] Confirmed deletion (404)
 
 ── Auth ──────────────────────────────────────────
 [Auth   ] Revoking tokens…
