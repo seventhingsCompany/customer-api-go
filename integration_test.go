@@ -447,8 +447,8 @@ func TestIntegrationRoomsCRUD(t *testing.T) {
 	// Discover required fields from room field definitions. Some instances
 	// have custom mandatory fields (e.g. a room-type dropdown).
 	roomFields := map[string]any{
-		"name":       "int-room-" + uniqueSuffix(),
-		"number":     "IR-" + uniqueSuffix(),
+		"name":        "int-room-" + uniqueSuffix(),
+		"number":      "IR-" + uniqueSuffix(),
 		"building_id": buildingID,
 	}
 	roomDefs, err := c.FieldDefinitionsList(ctx, models.AssetTrackingTemplateRoom)
@@ -579,8 +579,8 @@ func TestIntegrationTasks(t *testing.T) {
 	// Create task
 	deadline := "2099-12-31"
 	uuid, err := c.TaskCreate(ctx, models.CreateTask{
-		Title:    "integration-test-task",
-		Deadline: &deadline,
+		Title:     "integration-test-task",
+		Deadline:  &deadline,
 		Assignees: []string{userUUID},
 		References: []models.TaskReferenceInput{
 			{Type: models.TaskReferenceTypeAsset, UUID: refUUID},
@@ -1295,8 +1295,8 @@ func TestIntegrationCircularityHubAddObjects(t *testing.T) {
 	// Create a temporary object — purchasing_price is required for CHUB to
 	// process the object without an "Array to string conversion" error.
 	objUUID, err := c.ObjectCreate(ctx, map[string]any{
-		"inventory_name":  "ch-add-obj-" + uniqueSuffix(),
-		"barcode":         "INT-CHADD-" + uniqueSuffix(),
+		"inventory_name":   "ch-add-obj-" + uniqueSuffix(),
+		"barcode":          "INT-CHADD-" + uniqueSuffix(),
 		"purchasing_price": 100.00,
 	})
 	if err != nil {
@@ -1395,13 +1395,24 @@ func TestIntegrationPersonsCount(t *testing.T) {
 	if count < 0 {
 		t.Errorf("expected non-negative count, got %d", count)
 	}
+
+	// Count should agree with the Total reported by the list endpoint.
+	resp, err := c.PersonsList(ctx, nil)
+	if err != nil {
+		t.Fatalf("PersonsList: %v", err)
+	}
+	if count != resp.Total {
+		t.Errorf("PersonsCount (%d) disagrees with PersonsList Total (%d)", count, resp.Total)
+	}
 }
 
 // ---------------------------------------------------------------------------
 // Persons — create + patch + create-user + delete
 //
-// The person created here is removed via PersonDelete at the end, so the test
-// leaves no residue on the instance. Still, use a non-production instance.
+// The person created here is removed via PersonDelete (guarded by t.Cleanup).
+// Note: PersonCreateUser provisions a *user* account, and the customer API
+// exposes no user-delete endpoint, so that user remains on the instance. Use a
+// non-production instance for this test.
 // ---------------------------------------------------------------------------
 
 func TestIntegrationPersonCreateAndCreateUser(t *testing.T) {
@@ -1420,16 +1431,16 @@ func TestIntegrationPersonCreateAndCreateUser(t *testing.T) {
 	// System-managed fields that are reported as mandatory by field-definitions
 	// but must not be sent on POST. The server fills these in.
 	systemFields := map[string]bool{
-		"id":                                true,
-		"uuid":                              true,
-		"person_uuid":                       true,
-		"user_uuid":                         true,
-		"created_at":                        true,
-		"updated_at":                        true,
-		"updated_by_user_id":                true,
-		"imported_by_user_id":               true,
-		"imported_with_template_id":         true,
-		"imported_at":                       true,
+		"id":                                 true,
+		"uuid":                               true,
+		"person_uuid":                        true,
+		"user_uuid":                          true,
+		"created_at":                         true,
+		"updated_at":                         true,
+		"updated_by_user_id":                 true,
+		"imported_by_user_id":                true,
+		"imported_with_template_id":          true,
+		"imported_at":                        true,
 		"created_on_import_with_template_id": true,
 	}
 
@@ -1478,6 +1489,12 @@ func TestIntegrationPersonCreateAndCreateUser(t *testing.T) {
 	if uuid == "" {
 		t.Fatal("expected non-empty UUID from Location header")
 	}
+	// Safety net: guarantee the person is removed even if an assertion below
+	// fails early. The explicit PersonDelete at the end still exercises the
+	// delete path; this cleanup tolerates it already being gone.
+	t.Cleanup(func() {
+		_ = c.PersonDelete(ctx, uuid)
+	})
 
 	// Verify the new person is retrievable.
 	person, err := c.PersonGet(ctx, uuid)
