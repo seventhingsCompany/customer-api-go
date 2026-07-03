@@ -138,7 +138,7 @@ func TestPersonCreate(t *testing.T) {
 		if r.Method != http.MethodPost {
 			t.Errorf("expected POST, got %s", r.Method)
 		}
-		if r.URL.Path != "/customer-api/v1/persons" {
+		if r.URL.Path != "/customer-api/v1/person" {
 			t.Errorf("unexpected path: %s", r.URL.Path)
 		}
 		body, _ := io.ReadAll(r.Body)
@@ -170,6 +170,78 @@ func TestPersonCreate(t *testing.T) {
 	}
 	if uuid != "new-uuid-123" {
 		t.Errorf("expected new-uuid-123, got %s", uuid)
+	}
+}
+
+func TestPersonsCount(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/customer-api/v1/persons/count" {
+			t.Errorf("unexpected path: %s", r.URL.Path)
+		}
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"count":7}`))
+	}))
+	defer server.Close()
+
+	c := newTestClient(t, server)
+	c.SetToken("tok")
+
+	count, err := c.PersonsCount(context.Background(), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if count != 7 {
+		t.Errorf("expected 7, got %d", count)
+	}
+}
+
+func TestPersonPatch(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPatch {
+			t.Errorf("expected PATCH, got %s", r.Method)
+		}
+		if r.URL.Path != "/customer-api/v1/person/p1" {
+			t.Errorf("unexpected path: %s", r.URL.Path)
+		}
+		body, _ := io.ReadAll(r.Body)
+		var got map[string]any
+		if err := json.Unmarshal(body, &got); err != nil {
+			t.Fatalf("body not valid JSON: %v", err)
+		}
+		if got["department"] != "Sales" {
+			t.Errorf("expected department=Sales, got %v", got["department"])
+		}
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer server.Close()
+
+	c := newTestClient(t, server)
+	c.SetToken("tok")
+
+	err := c.PersonPatch(context.Background(), "p1", map[string]any{"department": "Sales"})
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestPersonDelete(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodDelete {
+			t.Errorf("expected DELETE, got %s", r.Method)
+		}
+		if r.URL.Path != "/customer-api/v1/person/p1" {
+			t.Errorf("unexpected path: %s", r.URL.Path)
+		}
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	defer server.Close()
+
+	c := newTestClient(t, server)
+	c.SetToken("tok")
+
+	err := c.PersonDelete(context.Background(), "p1")
+	if err != nil {
+		t.Fatal(err)
 	}
 }
 

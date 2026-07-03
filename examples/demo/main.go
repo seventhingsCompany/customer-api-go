@@ -189,19 +189,11 @@ func main() {
 	mustDo(c.ObjectDelete(ctx, taskObjUUID))
 	pf("Tasks", "Deleted reference object %s", taskObjUUID)
 
-	// ── Persons (read-only) ──────────────────────────────────────────────
-	// The customer API exposes no DELETE for persons, so this demo only
-	// reads. Create/CreateUser examples:
-	//
-	//   uuid, err := c.PersonCreate(ctx, map[string]any{
-	//       "email": "new.person@example.com", "first_name": "New", "last_name": "Person",
-	//   })
-	//   err = c.PersonCreateUser(ctx, models.FilterObject{
-	//       Filter: map[string]map[models.FilterOperator]any{
-	//           "email": {models.FilterEq: "new.person@example.com"},
-	//       },
-	//   })
-	section("Persons", "Listing persons…")
+	// ── Persons ──────────────────────────────────────────────────────────
+	section("Persons", "Counting and listing persons…")
+
+	personCount := must(c.PersonsCount(ctx, nil))
+	pf("Persons", "PersonsCount() → %d person(s)", personCount)
 
 	personPerPage := 5
 	personSortBy := "id"
@@ -234,6 +226,35 @@ func main() {
 		byID := must(c.PersonGetByID(ctx, first.ID))
 		pf("Persons", "PersonGetByID(%d) → uuid=%s email=%s", first.ID, byID.UUID, byID.Email)
 	}
+
+	// Full lifecycle: create → patch → delete (with 404 confirmation).
+	personEmail := fmt.Sprintf("sdk.demo+%d@example.com", ts)
+	personUUID := must(c.PersonCreate(ctx, map[string]any{
+		"email":      personEmail,
+		"first_name": "SDK",
+		"last_name":  "Demo",
+	}))
+	pf("Persons", "Created person %s <%s>", personUUID, personEmail)
+
+	mustDo(c.PersonPatch(ctx, personUUID, map[string]any{"department": "IT"}))
+	pf("Persons", "Patched person %s (department=IT)", personUUID)
+
+	mustDo(c.PersonDelete(ctx, personUUID))
+	pf("Persons", "Deleted person %s", personUUID)
+
+	_, err = c.PersonGet(ctx, personUUID)
+	if isNotFound(err) {
+		pf("Persons", "Confirmed deletion (404)")
+	} else {
+		log.Fatalf("[Persons] Expected 404 after deletion, got: %v", err)
+	}
+
+	// PersonCreateUser turns a person into a login user (side-effecting; not run here):
+	//   err = c.PersonCreateUser(ctx, models.FilterObject{
+	//       Filter: map[string]map[models.FilterOperator]any{
+	//           "email": {models.FilterEq: personEmail},
+	//       },
+	//   })
 
 	// ── Auth cleanup ─────────────────────────────────────────────────────
 	section("Auth", "Revoking tokens…")
