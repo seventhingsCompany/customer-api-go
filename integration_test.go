@@ -1381,11 +1381,27 @@ func TestIntegrationPersonsListAndGet(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// Persons — create + create-user
+// Persons — count
+// ---------------------------------------------------------------------------
+
+func TestIntegrationPersonsCount(t *testing.T) {
+	c := integrationClient(t)
+	ctx := context.Background()
+
+	count, err := c.PersonsCount(ctx, nil)
+	if err != nil {
+		t.Fatalf("PersonsCount: %v", err)
+	}
+	if count < 0 {
+		t.Errorf("expected non-negative count, got %d", count)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Persons — create + patch + create-user + delete
 //
-// Note: the customer API does not expose a DELETE endpoint for persons.
-// Records created here remain on the instance — use a non-production
-// instance for these tests.
+// The person created here is removed via PersonDelete at the end, so the test
+// leaves no residue on the instance. Still, use a non-production instance.
 // ---------------------------------------------------------------------------
 
 func TestIntegrationPersonCreateAndCreateUser(t *testing.T) {
@@ -1472,6 +1488,19 @@ func TestIntegrationPersonCreateAndCreateUser(t *testing.T) {
 		t.Errorf("expected email %q, got %q", email, person.Email)
 	}
 
+	// Patch a free-text field and verify the change round-trips.
+	newLast := "Integration Patched " + suffix
+	if err := c.PersonPatch(ctx, uuid, map[string]any{"last_name": newLast}); err != nil {
+		t.Fatalf("PersonPatch: %v", err)
+	}
+	patched, err := c.PersonGet(ctx, uuid)
+	if err != nil {
+		t.Fatalf("PersonGet after patch: %v", err)
+	}
+	if patched.Lastname == nil || *patched.Lastname != newLast {
+		t.Errorf("expected last_name %q after patch, got %v", newLast, patched.Lastname)
+	}
+
 	// Trigger user creation by filtering on the unique email.
 	err = c.PersonCreateUser(ctx, models.FilterObject{
 		Filter: map[string]map[models.FilterOperator]any{
@@ -1480,5 +1509,13 @@ func TestIntegrationPersonCreateAndCreateUser(t *testing.T) {
 	})
 	if err != nil {
 		t.Fatalf("PersonCreateUser: %v", err)
+	}
+
+	// Clean up: delete the person and confirm it is gone.
+	if err := c.PersonDelete(ctx, uuid); err != nil {
+		t.Fatalf("PersonDelete: %v", err)
+	}
+	if _, err := c.PersonGet(ctx, uuid); err == nil {
+		t.Error("expected error fetching deleted person, got nil")
 	}
 }

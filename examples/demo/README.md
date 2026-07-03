@@ -113,7 +113,7 @@ Revokes all tokens for the session.
 [Persons]   1. id=1 uuid=<uuid> Alice Smith <alice@example.com>
 ...
 [Persons] Created person <uuid> <sdk.demo+…@example.com>
-[Persons] Patched person <uuid> (department=Engineering)
+[Persons] Patched person <uuid> (department=IT)
 [Persons] Deleted person <uuid>
 [Persons] Confirmed deletion (404)
 

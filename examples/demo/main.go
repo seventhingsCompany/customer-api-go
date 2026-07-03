@@ -236,8 +236,8 @@ func main() {
 	}))
 	pf("Persons", "Created person %s <%s>", personUUID, personEmail)
 
-	mustDo(c.PersonPatch(ctx, personUUID, map[string]any{"department": "Engineering"}))
-	pf("Persons", "Patched person %s (department=Engineering)", personUUID)
+	mustDo(c.PersonPatch(ctx, personUUID, map[string]any{"department": "IT"}))
+	pf("Persons", "Patched person %s (department=IT)", personUUID)
 
 	mustDo(c.PersonDelete(ctx, personUUID))
 	pf("Persons", "Deleted person %s", personUUID)
