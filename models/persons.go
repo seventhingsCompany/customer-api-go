@@ -55,6 +55,31 @@ type PersonListOptions struct {
 	Order   *UserSortOrder
 }
 
+// NewPersonListOptions returns an empty *PersonListOptions ready for fluent configuration.
+func NewPersonListOptions() *PersonListOptions {
+	return &PersonListOptions{}
+}
+
+// WithPage sets the page number and returns o for chaining.
+func (o *PersonListOptions) WithPage(p int) *PersonListOptions {
+	o.Page = &p
+	return o
+}
+
+// WithPerPage sets the page size and returns o for chaining.
+func (o *PersonListOptions) WithPerPage(n int) *PersonListOptions {
+	o.PerPage = &n
+	return o
+}
+
+// WithSort sets the sort field (a person field key) and direction and returns o
+// for chaining.
+func (o *PersonListOptions) WithSort(fieldKey string, order UserSortOrder) *PersonListOptions {
+	o.SortBy = &fieldKey
+	o.Order = &order
+	return o
+}
+
 // Encode builds a query string from the PersonListOptions. A nil receiver returns "".
 func (o *PersonListOptions) Encode() string {
 	if o == nil {

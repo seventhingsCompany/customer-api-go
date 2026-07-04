@@ -158,3 +158,74 @@ func TestEncodeOrNullOperators(t *testing.T) {
 		t.Errorf("expected %q, got %q", expected, got)
 	}
 }
+
+func TestListOptionsBuilder(t *testing.T) {
+	o := NewListOptions().
+		WithPage(1).
+		WithPerPage(10).
+		SortBy("created_at", SortDESC).
+		Where(Eq("status", "active")).
+		Where(In("tag", "x", "y"))
+
+	got := o.Encode()
+	expected := "page=1&per_page=10&sort[created_at]=DESC&filter[status][eq]=active&filter[tag][in][]=x&filter[tag][in][]=y"
+	if got != expected {
+		t.Errorf("expected %q, got %q", expected, got)
+	}
+}
+
+func TestFilterConstructors(t *testing.T) {
+	tests := []struct {
+		name  string
+		entry FilterEntry
+		op    FilterOperator
+		vals  []string
+	}{
+		{"Eq", Eq("f", "v"), FilterEq, []string{"v"}},
+		{"Neq", Neq("f", "v"), FilterNeq, []string{"v"}},
+		{"Gt", Gt("f", "v"), FilterGt, []string{"v"}},
+		{"Gte", Gte("f", "v"), FilterGte, []string{"v"}},
+		{"Lt", Lt("f", "v"), FilterLt, []string{"v"}},
+		{"Lte", Lte("f", "v"), FilterLte, []string{"v"}},
+		{"Like", Like("f", "v"), FilterLike, []string{"v"}},
+		{"NotLike", NotLike("f", "v"), FilterNotLike, []string{"v"}},
+		{"In", In("f", "a", "b"), FilterIn, []string{"a", "b"}},
+		{"Nin", Nin("f", "a", "b"), FilterNin, []string{"a", "b"}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if tt.entry.Field != "f" {
+				t.Errorf("field = %q", tt.entry.Field)
+			}
+			if tt.entry.Operator != tt.op {
+				t.Errorf("operator = %q, want %q", tt.entry.Operator, tt.op)
+			}
+			if len(tt.entry.Values) != len(tt.vals) {
+				t.Fatalf("values = %v, want %v", tt.entry.Values, tt.vals)
+			}
+			for i := range tt.vals {
+				if tt.entry.Values[i] != tt.vals[i] {
+					t.Errorf("values[%d] = %q, want %q", i, tt.entry.Values[i], tt.vals[i])
+				}
+			}
+		})
+	}
+}
+
+func TestUserListOptionsBuilder(t *testing.T) {
+	o := NewUserListOptions().WithPage(2).WithPerPage(5).WithSort(UserSortByEmail, UserSortOrderAsc)
+	got := o.Encode()
+	expected := "page=2&per_page=5&sort_by=email&order=asc"
+	if got != expected {
+		t.Errorf("expected %q, got %q", expected, got)
+	}
+}
+
+func TestPersonListOptionsBuilder(t *testing.T) {
+	o := NewPersonListOptions().WithPage(1).WithPerPage(20).WithSort("last_name", UserSortOrderDesc)
+	got := o.Encode()
+	expected := "page=1&per_page=20&sort_by=last_name&order=desc"
+	if got != expected {
+		t.Errorf("expected %q, got %q", expected, got)
+	}
+}

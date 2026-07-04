@@ -54,6 +54,30 @@ type UserListOptions struct {
 	Order   *UserSortOrder
 }
 
+// NewUserListOptions returns an empty *UserListOptions ready for fluent configuration.
+func NewUserListOptions() *UserListOptions {
+	return &UserListOptions{}
+}
+
+// WithPage sets the page number and returns o for chaining.
+func (o *UserListOptions) WithPage(p int) *UserListOptions {
+	o.Page = &p
+	return o
+}
+
+// WithPerPage sets the page size and returns o for chaining.
+func (o *UserListOptions) WithPerPage(n int) *UserListOptions {
+	o.PerPage = &n
+	return o
+}
+
+// WithSort sets the sort field and direction and returns o for chaining.
+func (o *UserListOptions) WithSort(by UserSortBy, order UserSortOrder) *UserListOptions {
+	o.SortBy = &by
+	o.Order = &order
+	return o
+}
+
 // Encode builds a query string from the UserListOptions. A nil receiver returns "".
 func (o *UserListOptions) Encode() string {
 	if o == nil {
