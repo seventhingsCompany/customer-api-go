@@ -329,3 +329,50 @@ func TestPersonGetError404(t *testing.T) {
 		t.Errorf("expected 404 APIError, got %v", err)
 	}
 }
+
+func TestPersonGetPreservesCustomFields(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		// Includes an instance-defined custom field with no typed property.
+		_, _ = w.Write([]byte(`{"person_uuid":"p1","id":1,"email":"a@b.com","cost_center":"CC-9"}`))
+	}))
+	defer server.Close()
+
+	c := newTestClient(t, server)
+	c.SetToken("tok")
+
+	person, err := c.PersonGet(context.Background(), "p1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Typed field still works.
+	if person.Email != "a@b.com" {
+		t.Errorf("expected a@b.com, got %s", person.Email)
+	}
+	// Custom field survives via the raw Fields bag.
+	if cc, ok := person.Fields.String("cost_center"); !ok || cc != "CC-9" {
+		t.Errorf("expected cost_center CC-9 in Fields, got %q (ok=%v)", cc, ok)
+	}
+}
+
+func TestPersonsListPreservesCustomFields(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"items":[{"person_uuid":"p1","id":1,"email":"a@b.com","employee_number":4242}],"page":1,"per_page":50,"sort_by":"id","order":"asc","total":1}`))
+	}))
+	defer server.Close()
+
+	c := newTestClient(t, server)
+	c.SetToken("tok")
+
+	result, err := c.PersonsList(context.Background(), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(result.Items) != 1 {
+		t.Fatalf("expected 1 item, got %d", len(result.Items))
+	}
+	if num, ok := result.Items[0].Fields.Int("employee_number"); !ok || num != 4242 {
+		t.Errorf("expected employee_number 4242 in Fields, got %d (ok=%v)", num, ok)
+	}
+}
