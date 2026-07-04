@@ -1,6 +1,12 @@
 // Command demo exercises the core seventhings SDK modules (Auth, Objects,
-// Files, Tasks, Persons) against a real instance. Configure via environment
-// variables:
+// Files, Tasks, Persons) against a real instance. It also showcases the SDK
+// ergonomics helpers: typed field access (models.Fields), auto-paginating
+// iterators (ObjectsAll, PersonsAll, …), the fluent ListOptions builder with
+// filter constructors (models.Eq/Like/…), mandatory-field discovery
+// (MandatoryFieldDefinitions/MissingMandatoryFields), and error predicates
+// (models.IsNotFound/…).
+//
+// Configure via environment variables:
 //
 //	SEVENTHINGS_BASE_URL   — e.g. https://example.seventhings.com
 //	SEVENTHINGS_USERNAME   — login username
@@ -10,10 +16,8 @@ package main
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"log"
-	"net/http"
 	"os"
 	"strings"
 	"time"
@@ -48,12 +52,22 @@ func main() {
 	mustDo(err)
 	pf("Objects", "Listed %d object(s) (first page, max 5)", len(objs))
 
-	// Create
+	// Create — first fail-fast check that the payload satisfies any
+	// instance-configured mandatory fields (these vary per instance).
 	ts := time.Now().UnixMilli()
-	objUUID := must(c.ObjectCreate(ctx, map[string]any{
+	newObj := map[string]any{
 		"inventory_name": "SDK Demo Object",
 		"barcode":        fmt.Sprintf("SDK-DEMO-%d", ts),
-	}))
+	}
+	missing, err := c.MissingMandatoryFields(ctx, models.AssetTrackingTemplateAsset, newObj)
+	mustDo(err)
+	if len(missing) > 0 {
+		pf("Objects", "Heads up — instance requires unset mandatory field(s): %v", missing)
+	} else {
+		pf("Objects", "Payload satisfies all mandatory asset fields")
+	}
+
+	objUUID := must(c.ObjectCreate(ctx, newObj))
 	pf("Objects", "Created object %s", objUUID)
 
 	// Patch
@@ -73,7 +87,7 @@ func main() {
 	pf("Objects", "Deleted object %s", objUUID)
 
 	_, err = c.ObjectGet(ctx, objUUID)
-	if isNotFound(err) {
+	if models.IsNotFound(err) {
 		pf("Objects", "Confirmed deletion (404)")
 	} else {
 		log.Fatalf("[Objects] Expected 404 after deletion, got: %v", err)
@@ -82,35 +96,50 @@ func main() {
 	// ── Filtered listing ─────────────────────────────────────────────────
 	section("Objects", "Fetching last 5 changed assets (sorted + filtered)…")
 
-	recentObjs, err := c.ObjectsList(ctx, &models.ListOptions{
-		Page:    1,
-		PerPage: 5,
-		Sort:    map[string]models.SortDirection{"updated_at": models.SortDESC},
-	})
+	// The fluent ListOptions builder makes sorting/paging readable, and
+	// models.Fields gives type-safe access to the dynamic object map.
+	recentObjs, err := c.ObjectsList(ctx, models.NewListOptions().
+		WithPage(1).
+		WithPerPage(5).
+		SortBy("updated_at", models.SortDESC))
 	mustDo(err)
 	pf("Objects", "Got %d recently changed asset(s):", len(recentObjs))
 	for i, obj := range recentObjs {
-		name, _ := obj["inventory_name"].(string)
-		updatedAt, _ := obj["updated_at"].(string)
+		f := models.Fields(obj)
+		name, _ := f.String("inventory_name")
+		updatedAt, _ := f.String("updated_at")
 		pf("Objects", "  %d. %s (updated_at=%s)", i+1, name, updatedAt)
 	}
 
-	// Filter by name — find objects whose inventory_name contains "SDK"
+	// Filter by name — find objects whose inventory_name contains "SDK".
+	// Filter constructors (models.Like/Eq/In/…) replace raw FilterEntry literals.
 	section("Objects", "Filtering assets by name containing \"SDK\"…")
 
-	filtered, err := c.ObjectsList(ctx, &models.ListOptions{
-		Page:    1,
-		PerPage: 5,
-		Filters: []models.FilterEntry{
-			{Field: "inventory_name", Operator: models.FilterLike, Values: []string{"SDK"}},
-		},
-	})
+	filtered, err := c.ObjectsList(ctx, models.NewListOptions().
+		WithPage(1).
+		WithPerPage(5).
+		Where(models.Like("inventory_name", "SDK")))
 	mustDo(err)
 	pf("Objects", "Got %d asset(s) matching filter:", len(filtered))
 	for i, obj := range filtered {
-		name, _ := obj["inventory_name"].(string)
+		name, _ := models.Fields(obj).String("inventory_name")
 		pf("Objects", "  %d. %s", i+1, name)
 	}
+
+	// The *All iterators walk every page transparently. Cap the demo output
+	// so we don't stream the whole instance.
+	section("Objects", "Iterating all assets via ObjectsAll (capped at 10)…")
+
+	seen := 0
+	for obj, err := range c.ObjectsAll(ctx, models.NewListOptions().WithPerPage(50)) {
+		mustDo(err)
+		name, _ := obj.String("inventory_name")
+		pf("Objects", "  • %s (%s)", name, obj.UUID())
+		if seen++; seen >= 10 {
+			break
+		}
+	}
+	pf("Objects", "Iterated %d asset(s) before stopping", seen)
 
 	// ── Files ────────────────────────────────────────────────────────────
 	section("Files", "Uploading file…")
@@ -179,7 +208,7 @@ func main() {
 	pf("Tasks", "Deleted task %s", taskUUID)
 
 	_, err = c.TaskGet(ctx, taskUUID)
-	if isNotFound(err) {
+	if models.IsNotFound(err) {
 		pf("Tasks", "Confirmed deletion (404)")
 	} else {
 		log.Fatalf("[Tasks] Expected 404 after deletion, got: %v", err)
@@ -195,16 +224,10 @@ func main() {
 	personCount := must(c.PersonsCount(ctx, nil))
 	pf("Persons", "PersonsCount() → %d person(s)", personCount)
 
-	personPerPage := 5
-	personSortBy := "id"
-	personOrder := models.UserSortOrderAsc
-	personPage := 1
-	personResp, err := c.PersonsList(ctx, &models.PersonListOptions{
-		Page:    &personPage,
-		PerPage: &personPerPage,
-		SortBy:  &personSortBy,
-		Order:   &personOrder,
-	})
+	personResp, err := c.PersonsList(ctx, models.NewPersonListOptions().
+		WithPage(1).
+		WithPerPage(5).
+		WithSort("id", models.UserSortOrderAsc))
 	mustDo(err)
 	pf("Persons", "Got %d person(s) (page 1, max 5):", len(personResp.Items))
 	for i, p := range personResp.Items {
@@ -227,6 +250,20 @@ func main() {
 		pf("Persons", "PersonGetByID(%d) → uuid=%s email=%s", first.ID, byID.UUID, byID.Email)
 	}
 
+	// Discover which person fields this instance marks mandatory (system-managed
+	// keys are already excluded).
+	personDefs, err := c.MandatoryFieldDefinitions(ctx, models.AssetTrackingTemplatePerson)
+	mustDo(err)
+	if len(personDefs) == 0 {
+		pf("Persons", "No custom mandatory person fields configured")
+	} else {
+		keys := make([]string, len(personDefs))
+		for i, d := range personDefs {
+			keys[i] = d.FieldKey
+		}
+		pf("Persons", "Instance-required person field(s): %v", keys)
+	}
+
 	// Full lifecycle: create → patch → delete (with 404 confirmation).
 	personEmail := fmt.Sprintf("sdk.demo+%d@example.com", ts)
 	personUUID := must(c.PersonCreate(ctx, map[string]any{
@@ -243,7 +280,7 @@ func main() {
 	pf("Persons", "Deleted person %s", personUUID)
 
 	_, err = c.PersonGet(ctx, personUUID)
-	if isNotFound(err) {
+	if models.IsNotFound(err) {
 		pf("Persons", "Confirmed deletion (404)")
 	} else {
 		log.Fatalf("[Persons] Expected 404 after deletion, got: %v", err)
@@ -295,12 +332,4 @@ func section(tag, msg string) {
 
 func pf(tag, format string, args ...any) {
 	fmt.Printf("[%-7s] "+format+"\n", append([]any{tag}, args...)...)
-}
-
-func isNotFound(err error) bool {
-	var apiErr *models.APIError
-	if errors.As(err, &apiErr) {
-		return apiErr.StatusCode == http.StatusNotFound
-	}
-	return false
 }
