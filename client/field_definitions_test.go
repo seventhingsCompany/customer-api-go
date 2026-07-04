@@ -311,3 +311,107 @@ func TestFieldDefinitionNullableFields(t *testing.T) {
 		t.Errorf("expected nil possible_values, got %v", fd.PossibleValues)
 	}
 }
+
+func TestMandatoryFieldDefinitions(t *testing.T) {
+	// name: mandatory text; category: mandatory dropdown; note: optional;
+	// uuid: mandatory but system-managed (must be excluded).
+	body := `[
+		{"uuid":"fd1","field_key":"name","field_type":{"name":"TEXT","constraints":[]},"label":"Name","attributes":[{"type":"mandatory","value":"yes"}]},
+		{"uuid":"fd2","field_key":"category","field_type":{"name":"DROPDOWN","constraints":[{"type":"allowed_values","value":["A","B"]}]},"label":"Category","attributes":[{"type":"mandatory","value":"yes"}]},
+		{"uuid":"fd3","field_key":"note","field_type":{"name":"TEXT","constraints":[]},"label":"Note","attributes":[{"type":"mandatory","value":"no"}]},
+		{"uuid":"fd4","field_key":"uuid","field_type":{"name":"TEXT","constraints":[]},"label":"UUID","attributes":[{"type":"mandatory","value":"yes"}]}
+	]`
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/customer-api/v1/asset-tracking/asset/field-definitions" {
+			t.Errorf("unexpected path: %s", r.URL.Path)
+		}
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(body))
+	}))
+	defer server.Close()
+
+	c := newTestClient(t, server)
+	c.SetToken("tok")
+
+	defs, err := c.MandatoryFieldDefinitions(context.Background(), models.AssetTrackingTemplateAsset)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(defs) != 2 {
+		t.Fatalf("expected 2 mandatory (non-system) definitions, got %d", len(defs))
+	}
+	keys := map[string]bool{}
+	for _, d := range defs {
+		keys[d.FieldKey] = true
+	}
+	if !keys["name"] || !keys["category"] {
+		t.Errorf("expected name and category, got %v", keys)
+	}
+	if keys["note"] {
+		t.Error("optional field note should be excluded")
+	}
+	if keys["uuid"] {
+		t.Error("system-managed field uuid should be excluded")
+	}
+}
+
+func TestMissingMandatoryFields(t *testing.T) {
+	// name + category mandatory; note optional; uuid mandatory-but-system.
+	body := `[
+		{"uuid":"fd1","field_key":"name","field_type":{"name":"TEXT","constraints":[]},"label":"Name","attributes":[{"type":"mandatory","value":"yes"}]},
+		{"uuid":"fd2","field_key":"category","field_type":{"name":"TEXT","constraints":[]},"label":"Category","attributes":[{"type":"mandatory","value":"yes"}]},
+		{"uuid":"fd3","field_key":"note","field_type":{"name":"TEXT","constraints":[]},"label":"Note","attributes":[{"type":"mandatory","value":"no"}]},
+		{"uuid":"fd4","field_key":"uuid","field_type":{"name":"TEXT","constraints":[]},"label":"UUID","attributes":[{"type":"mandatory","value":"yes"}]}
+	]`
+	newServer := func() *httptest.Server {
+		return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(body))
+		}))
+	}
+
+	t.Run("partial payload reports missing", func(t *testing.T) {
+		server := newServer()
+		defer server.Close()
+		c := newTestClient(t, server)
+		c.SetToken("tok")
+
+		// category present but nil should count as missing; name absent.
+		missing, err := c.MissingMandatoryFields(context.Background(),
+			models.AssetTrackingTemplateAsset,
+			map[string]any{"category": nil, "note": "x"})
+		if err != nil {
+			t.Fatal(err)
+		}
+		set := map[string]bool{}
+		for _, m := range missing {
+			set[m] = true
+		}
+		if !set["name"] || !set["category"] {
+			t.Errorf("expected name and category missing, got %v", missing)
+		}
+		if set["uuid"] {
+			t.Error("system-managed uuid must not be reported as missing")
+		}
+		if set["note"] {
+			t.Error("optional note must not be reported as missing")
+		}
+	})
+
+	t.Run("complete payload reports none", func(t *testing.T) {
+		server := newServer()
+		defer server.Close()
+		c := newTestClient(t, server)
+		c.SetToken("tok")
+
+		missing, err := c.MissingMandatoryFields(context.Background(),
+			models.AssetTrackingTemplateAsset,
+			map[string]any{"name": "widget", "category": "a"})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(missing) != 0 {
+			t.Errorf("expected no missing fields, got %v", missing)
+		}
+	})
+}
