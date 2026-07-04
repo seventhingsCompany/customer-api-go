@@ -1,6 +1,7 @@
 package models
 
 import (
+	"encoding/json"
 	"net/url"
 	"strconv"
 	"strings"
@@ -34,6 +35,35 @@ type Person struct {
 	ImportedWithTemplateID        *int    `json:"imported_with_template_id"`
 	ImportedAt                    *string `json:"imported_at"`
 	CreatedOnImportWithTemplateID *int    `json:"created_on_import_with_template_id"`
+
+	// Fields holds the complete, untouched field map as returned by the API,
+	// including instance-defined custom fields that have no typed property
+	// above. Person schemas are template-defined and vary per instance, so the
+	// typed fields cover only the common columns; read custom values (and the
+	// common ones) from Fields using its typed accessors. Populated on decode
+	// by every SDK read (PersonGet/PersonGetByID/PersonsList).
+	Fields Fields `json:"-"`
+}
+
+// UnmarshalJSON decodes a person, populating both the typed convenience fields
+// and the full raw Fields map so instance-defined custom fields are never lost.
+func (p *Person) UnmarshalJSON(data []byte) error {
+	// personAlias avoids recursing into this method while decoding the typed
+	// fields. The Fields tag is json:"-", so it is not touched here.
+	type personAlias Person
+	var typed personAlias
+	if err := json.Unmarshal(data, &typed); err != nil {
+		return err
+	}
+	*p = Person(typed)
+
+	// Capture the complete payload verbatim, including unmapped custom fields.
+	var raw Fields
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return err
+	}
+	p.Fields = raw
+	return nil
 }
 
 // PersonListResponse is the paginated response for listing persons.
@@ -53,6 +83,31 @@ type PersonListOptions struct {
 	PerPage *int
 	SortBy  *string
 	Order   *UserSortOrder
+}
+
+// NewPersonListOptions returns an empty *PersonListOptions ready for fluent configuration.
+func NewPersonListOptions() *PersonListOptions {
+	return &PersonListOptions{}
+}
+
+// WithPage sets the page number and returns o for chaining.
+func (o *PersonListOptions) WithPage(p int) *PersonListOptions {
+	o.Page = &p
+	return o
+}
+
+// WithPerPage sets the page size and returns o for chaining.
+func (o *PersonListOptions) WithPerPage(n int) *PersonListOptions {
+	o.PerPage = &n
+	return o
+}
+
+// WithSort sets the sort field (a person field key) and direction and returns o
+// for chaining.
+func (o *PersonListOptions) WithSort(fieldKey string, order UserSortOrder) *PersonListOptions {
+	o.SortBy = &fieldKey
+	o.Order = &order
+	return o
 }
 
 // Encode builds a query string from the PersonListOptions. A nil receiver returns "".

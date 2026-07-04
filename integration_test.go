@@ -451,31 +451,17 @@ func TestIntegrationRoomsCRUD(t *testing.T) {
 		"number":      "IR-" + uniqueSuffix(),
 		"building_id": buildingID,
 	}
-	roomDefs, err := c.FieldDefinitionsList(ctx, models.AssetTrackingTemplateRoom)
+	roomDefs, err := c.MandatoryFieldDefinitions(ctx, models.AssetTrackingTemplateRoom)
 	if err == nil {
 		for _, d := range roomDefs {
-			isMandatory := false
-			for _, attr := range d.Attributes {
-				if attr.Type == "mandatory" && attr.Value == "yes" {
-					isMandatory = true
-					break
-				}
-			}
-			if !isMandatory {
-				continue
-			}
-			// Skip fields we already set or system-managed fields.
+			// Skip fields we already set.
 			if _, exists := roomFields[d.FieldKey]; exists {
 				continue
 			}
 			// For DROPDOWN fields, use the first allowed value.
 			if d.FieldType.Name == models.FieldTypeDropdown {
-				for _, c := range d.FieldType.Constraints {
-					if c.Type == "allowed_values" {
-						if vals, ok := c.Value.([]any); ok && len(vals) > 0 {
-							roomFields[d.FieldKey] = vals[0]
-						}
-					}
+				if vals, ok := d.FieldType.AllowedValues(); ok && len(vals) > 0 {
+					roomFields[d.FieldKey] = vals[0]
 				}
 			}
 		}
@@ -1428,51 +1414,18 @@ func TestIntegrationPersonCreateAndCreateUser(t *testing.T) {
 		"last_name":  "Integration " + suffix,
 	}
 
-	// System-managed fields that are reported as mandatory by field-definitions
-	// but must not be sent on POST. The server fills these in.
-	systemFields := map[string]bool{
-		"id":                                 true,
-		"uuid":                               true,
-		"person_uuid":                        true,
-		"user_uuid":                          true,
-		"created_at":                         true,
-		"updated_at":                         true,
-		"updated_by_user_id":                 true,
-		"imported_by_user_id":                true,
-		"imported_with_template_id":          true,
-		"imported_at":                        true,
-		"created_on_import_with_template_id": true,
-	}
-
 	// Best-effort: discover any *real* mandatory person fields and synthesise
-	// values. System fields are skipped.
-	defs, err := c.FieldDefinitionsList(ctx, models.AssetTrackingTemplatePerson)
+	// values. System-managed fields are excluded by MandatoryFieldDefinitions.
+	defs, err := c.MandatoryFieldDefinitions(ctx, models.AssetTrackingTemplatePerson)
 	if err == nil {
 		for _, d := range defs {
-			mandatory := false
-			for _, attr := range d.Attributes {
-				if attr.Type == "mandatory" && attr.Value == "yes" {
-					mandatory = true
-					break
-				}
-			}
-			if !mandatory {
-				continue
-			}
-			if systemFields[d.FieldKey] {
-				continue
-			}
 			if _, exists := personFields[d.FieldKey]; exists {
 				continue
 			}
 			switch d.FieldType.Name {
 			case models.FieldTypeDropdown:
-				for _, con := range d.FieldType.Constraints {
-					if con.Type == "allowed_values" {
-						if vals, ok := con.Value.([]any); ok && len(vals) > 0 {
-							personFields[d.FieldKey] = vals[0]
-						}
-					}
+				if vals, ok := d.FieldType.AllowedValues(); ok && len(vals) > 0 {
+					personFields[d.FieldKey] = vals[0]
 				}
 			case models.FieldTypeText, models.FieldTypeLongText:
 				personFields[d.FieldKey] = "int-" + suffix

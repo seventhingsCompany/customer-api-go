@@ -57,12 +57,97 @@ type FilterEntry struct {
 	Values   []string
 }
 
+// Filter constructors build a FilterEntry for use with ListOptions.Where.
+
+// Eq matches values equal to value.
+func Eq(field, value string) FilterEntry {
+	return FilterEntry{Field: field, Operator: FilterEq, Values: []string{value}}
+}
+
+// Neq matches values not equal to value.
+func Neq(field, value string) FilterEntry {
+	return FilterEntry{Field: field, Operator: FilterNeq, Values: []string{value}}
+}
+
+// Gt matches values greater than value.
+func Gt(field, value string) FilterEntry {
+	return FilterEntry{Field: field, Operator: FilterGt, Values: []string{value}}
+}
+
+// Gte matches values greater than or equal to value.
+func Gte(field, value string) FilterEntry {
+	return FilterEntry{Field: field, Operator: FilterGte, Values: []string{value}}
+}
+
+// Lt matches values less than value.
+func Lt(field, value string) FilterEntry {
+	return FilterEntry{Field: field, Operator: FilterLt, Values: []string{value}}
+}
+
+// Lte matches values less than or equal to value.
+func Lte(field, value string) FilterEntry {
+	return FilterEntry{Field: field, Operator: FilterLte, Values: []string{value}}
+}
+
+// Like matches values containing value.
+func Like(field, value string) FilterEntry {
+	return FilterEntry{Field: field, Operator: FilterLike, Values: []string{value}}
+}
+
+// NotLike matches values not containing value.
+func NotLike(field, value string) FilterEntry {
+	return FilterEntry{Field: field, Operator: FilterNotLike, Values: []string{value}}
+}
+
+// In matches values present in the given set.
+func In(field string, values ...string) FilterEntry {
+	return FilterEntry{Field: field, Operator: FilterIn, Values: values}
+}
+
+// Nin matches values not present in the given set.
+func Nin(field string, values ...string) FilterEntry {
+	return FilterEntry{Field: field, Operator: FilterNin, Values: values}
+}
+
 // ListOptions configures pagination, sorting, and filtering for list endpoints.
 type ListOptions struct {
 	Page    int
 	PerPage int
 	Sort    map[string]SortDirection
 	Filters []FilterEntry
+}
+
+// NewListOptions returns an empty *ListOptions ready for fluent configuration.
+func NewListOptions() *ListOptions {
+	return &ListOptions{}
+}
+
+// WithPage sets the page number and returns o for chaining.
+func (o *ListOptions) WithPage(p int) *ListOptions {
+	o.Page = p
+	return o
+}
+
+// WithPerPage sets the page size and returns o for chaining.
+func (o *ListOptions) WithPerPage(n int) *ListOptions {
+	o.PerPage = n
+	return o
+}
+
+// SortBy adds a sort on field in the given direction and returns o for chaining.
+func (o *ListOptions) SortBy(field string, dir SortDirection) *ListOptions {
+	if o.Sort == nil {
+		o.Sort = map[string]SortDirection{}
+	}
+	o.Sort[field] = dir
+	return o
+}
+
+// Where appends a filter condition and returns o for chaining. Build entries
+// with the filter constructors (Eq, In, Like, ...).
+func (o *ListOptions) Where(f FilterEntry) *ListOptions {
+	o.Filters = append(o.Filters, f)
+	return o
 }
 
 // isMultiValueOp returns true for operators that use array-style encoding.

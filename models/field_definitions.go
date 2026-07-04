@@ -56,6 +56,38 @@ const (
 	FieldTypeText FieldTypeName = "TEXT"
 )
 
+// Well-known field attribute types carried in FieldDefinition.Attributes.
+const (
+	// FieldAttributeMandatory marks a field as required when creating a
+	// resource. Its value is "yes" when the field is mandatory.
+	FieldAttributeMandatory = "mandatory"
+)
+
+// mandatoryAttributeValue is the FieldAttribute value that marks a field
+// as required.
+const mandatoryAttributeValue = "yes"
+
+// ConstraintAllowedValues is the FieldValueConstraint type that enumerates
+// the permitted values for a constrained field (e.g. a DROPDOWN).
+const ConstraintAllowedValues = "allowed_values"
+
+// SystemManagedFieldKeys are field keys the server manages itself. These may
+// be reported as mandatory by the field-definitions endpoint but must not be
+// sent when creating a resource — the server fills them in.
+var SystemManagedFieldKeys = map[string]bool{
+	"id":                                 true,
+	"uuid":                               true,
+	"person_uuid":                        true,
+	"user_uuid":                          true,
+	"created_at":                         true,
+	"updated_at":                         true,
+	"updated_by_user_id":                 true,
+	"imported_by_user_id":                true,
+	"imported_with_template_id":          true,
+	"imported_at":                        true,
+	"created_on_import_with_template_id": true,
+}
+
 // FieldValueConstraint defines a constraint on a field's value.
 // Value can be a string, int, or []string depending on the constraint type.
 type FieldValueConstraint struct {
@@ -94,6 +126,38 @@ type FieldDefinition struct {
 	Comment        *string                  `json:"comment"`
 	DefaultValue   any                      `json:"default_value"`
 	PossibleValues []any                    `json:"possible_values"`
+}
+
+// Attribute returns the value of the named attribute and whether it was present.
+func (d FieldDefinition) Attribute(attrType string) (any, bool) {
+	for _, a := range d.Attributes {
+		if a.Type == attrType {
+			return a.Value, true
+		}
+	}
+	return nil, false
+}
+
+// IsMandatory reports whether the field is configured as required for this
+// instance. Mandatory fields must be supplied when creating a resource
+// (object/asset, room, person) for the field definition's template, unless the
+// key is system-managed (see SystemManagedFieldKeys).
+func (d FieldDefinition) IsMandatory() bool {
+	v, ok := d.Attribute(FieldAttributeMandatory)
+	return ok && v == mandatoryAttributeValue
+}
+
+// AllowedValues returns the permitted values for a constrained field (e.g. a
+// DROPDOWN) and whether such a constraint is present.
+func (t FieldDefinitionFieldType) AllowedValues() ([]any, bool) {
+	for _, c := range t.Constraints {
+		if c.Type == ConstraintAllowedValues {
+			if vals, ok := c.Value.([]any); ok {
+				return vals, true
+			}
+		}
+	}
+	return nil, false
 }
 
 // CreateFieldDefinition is the request body for creating a field definition.
