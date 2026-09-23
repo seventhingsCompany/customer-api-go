@@ -9,9 +9,9 @@ import (
 
 // Person represents a person in the seventhings asset-tracking system.
 //
-// Field tags follow the live API response, which uses snake_case and
-// differs from the OpenAPI spec (the spec documents `uuid`/`firstname`/
-// `lastname`, but the wire format is `person_uuid`/`first_name`/`last_name`).
+// Both flat records and {uuid, fields} response envelopes are accepted.
+// UUID accepts both the legacy person_uuid field and the newer uuid field.
+// Marshaling retains the legacy field names for compatibility.
 type Person struct {
 	UUID      string  `json:"person_uuid"`
 	ID        int     `json:"id"`
@@ -36,7 +36,8 @@ type Person struct {
 	ImportedAt                    *string `json:"imported_at"`
 	CreatedOnImportWithTemplateID *int    `json:"created_on_import_with_template_id"`
 
-	// Fields holds the complete, untouched field map as returned by the API,
+	// Fields holds the complete, untouched field map as returned by the API
+	// (the inner fields map for enveloped responses),
 	// including instance-defined custom fields that have no typed property
 	// above. Person schemas are template-defined and vary per instance, so the
 	// typed fields cover only the common columns; read custom values (and the
@@ -52,17 +53,35 @@ func (p *Person) UnmarshalJSON(data []byte) error {
 	// fields. The Fields tag is json:"-", so it is not touched here.
 	type personAlias Person
 	var typed personAlias
-	if err := json.Unmarshal(data, &typed); err != nil {
+	wire := struct {
+		*personAlias
+		UUID   string          `json:"uuid"`
+		Fields json.RawMessage `json:"fields"`
+	}{personAlias: &typed}
+	if err := json.Unmarshal(data, &wire); err != nil {
 		return err
 	}
-	*p = Person(typed)
+	fieldData := data
+	if wire.UUID != "" && len(wire.Fields) > 0 && string(wire.Fields) != "null" {
+		// Newer responses put all typed and custom properties in fields.
+		fieldData = wire.Fields
+		typed = personAlias{}
+		if err := json.Unmarshal(fieldData, &typed); err != nil {
+			return err
+		}
+	}
+	// Preserve the legacy value if both names are present.
+	if typed.UUID == "" {
+		typed.UUID = wire.UUID
+	}
 
 	// Capture the complete payload verbatim, including unmapped custom fields.
 	var raw Fields
-	if err := json.Unmarshal(data, &raw); err != nil {
+	if err := json.Unmarshal(fieldData, &raw); err != nil {
 		return err
 	}
-	p.Fields = raw
+	typed.Fields = raw
+	*p = Person(typed)
 	return nil
 }
 

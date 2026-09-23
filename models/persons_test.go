@@ -2,6 +2,7 @@ package models
 
 import (
 	"encoding/json"
+	"reflect"
 	"testing"
 )
 
@@ -56,7 +57,7 @@ func TestPersonUnmarshalWithinListResponse(t *testing.T) {
 	raw := `{
 		"items": [
 			{"person_uuid": "p-1", "id": 1, "email": "a@b.com", "cost_center": "CC-1"},
-			{"person_uuid": "p-2", "id": 2, "email": "c@d.com"}
+			{"uuid": "p-2", "id": 2, "email": "c@d.com"}
 		],
 		"page": 1, "per_page": 50, "sort_by": "id", "order": "asc", "total": 2
 	}`
@@ -67,6 +68,9 @@ func TestPersonUnmarshalWithinListResponse(t *testing.T) {
 	}
 	if len(resp.Items) != 2 {
 		t.Fatalf("expected 2 items, got %d", len(resp.Items))
+	}
+	if resp.Items[0].UUID != "p-1" || resp.Items[1].UUID != "p-2" {
+		t.Fatalf("UUIDs were not decoded from both field names")
 	}
 	// Custom field on the first item is preserved through the list decode.
 	if cc, ok := resp.Items[0].Fields.String("cost_center"); !ok || cc != "CC-1" {
@@ -95,5 +99,104 @@ func TestPersonMarshalRoundTripUnaffected(t *testing.T) {
 	}
 	if _, exists := check["fields"]; exists {
 		t.Error("marshaled Person unexpectedly contains a fields key")
+	}
+	if check["person_uuid"] != "p-1" {
+		t.Error("marshaled Person lost its legacy person_uuid field")
+	}
+	if _, exists := check["uuid"]; exists {
+		t.Error("marshaled Person unexpectedly contains a uuid field")
+	}
+}
+
+func TestPersonUUIDCompatibility(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		body string
+		want string
+	}{
+		{"legacy", `{"person_uuid":"legacy","custom":"value"}`, "legacy"},
+		{"current", `{"uuid":"current","custom":"value"}`, "current"},
+		{"both", `{"person_uuid":"legacy","uuid":"current"}`, "legacy"},
+		{"empty legacy", `{"person_uuid":"","uuid":"current"}`, "current"},
+		{"null legacy", `{"person_uuid":null,"uuid":"current"}`, "current"},
+		{"missing", `{}`, ""},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			// Decode into a reused value to ensure stale fields do not survive.
+			p := Person{UUID: "stale", Fields: Fields{"stale": true}}
+			if err := json.Unmarshal([]byte(tc.body), &p); err != nil {
+				t.Fatal(err)
+			}
+			if p.UUID != tc.want {
+				t.Fatalf("UUID = %q, want %q", p.UUID, tc.want)
+			}
+			var raw Fields
+			if err := json.Unmarshal([]byte(tc.body), &raw); err != nil {
+				t.Fatal(err)
+			}
+			if !reflect.DeepEqual(p.Fields, raw) {
+				t.Fatalf("raw fields changed: got %v, want %v", p.Fields, raw)
+			}
+		})
+	}
+}
+
+func TestPersonRejectsInvalidUUIDTypes(t *testing.T) {
+	for _, body := range []string{`{"uuid":42}`, `{"person_uuid":42}`} {
+		var p Person
+		if err := json.Unmarshal([]byte(body), &p); err == nil {
+			t.Errorf("expected a decoding error for %s", body)
+		}
+	}
+}
+
+func TestPersonWrappedResponse(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		body string
+	}{
+		{"legacy inner UUID", `{"uuid":"p-1","fields":{"person_uuid":"p-1","id":7,"email":"ada@example.test","first_name":"Ada","last_name":"Lovelace","department":"IT","cost_center":"CC-1","documents":[{"uuid":"file-1"}]}}`},
+		{"envelope UUID only", `{"uuid":"p-1","fields":{"id":7,"email":"ada@example.test","first_name":"Ada","last_name":"Lovelace","department":"IT","cost_center":"CC-1","documents":[{"uuid":"file-1"}]}}`},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			var p Person
+			if err := json.Unmarshal([]byte(tc.body), &p); err != nil {
+				t.Fatal(err)
+			}
+			if p.UUID != "p-1" || p.ID != 7 || p.Email != "ada@example.test" {
+				t.Fatalf("incorrect identity: UUID=%q ID=%d Email=%q", p.UUID, p.ID, p.Email)
+			}
+			if p.Firstname == nil || *p.Firstname != "Ada" || p.Lastname == nil || *p.Lastname != "Lovelace" || p.Department == nil || *p.Department != "IT" {
+				t.Fatalf("wrapped typed fields not decoded: %+v", p)
+			}
+			var envelope struct {
+				Fields Fields `json:"fields"`
+			}
+			if err := json.Unmarshal([]byte(tc.body), &envelope); err != nil {
+				t.Fatal(err)
+			}
+			if !reflect.DeepEqual(p.Fields, envelope.Fields) || !reflect.DeepEqual(p.Documents, envelope.Fields["documents"]) {
+				t.Fatal("wrapped custom fields or attachments were lost")
+			}
+			var list PersonListResponse
+			if err := json.Unmarshal([]byte(`{"items":[`+tc.body+`],"total":1}`), &list); err != nil {
+				t.Fatal(err)
+			}
+			if len(list.Items) != 1 || !reflect.DeepEqual(list.Items[0], p) {
+				t.Fatal("wrapped list item differs from detail response")
+			}
+		})
+	}
+}
+
+func TestPersonWrappedResponseInvalidFields(t *testing.T) {
+	for _, body := range []string{
+		`{"uuid":"p-1","fields":"invalid"}`,
+		`{"uuid":"p-1","fields":{"id":"invalid"}}`,
+	} {
+		var p Person
+		if err := json.Unmarshal([]byte(body), &p); err == nil {
+			t.Errorf("expected decoding error for %s", body)
+		}
 	}
 }

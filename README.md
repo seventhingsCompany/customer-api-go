@@ -61,6 +61,9 @@ uuid, err := c.ObjectCreate(ctx, map[string]any{"name": "Laptop", "serial": "SN-
 // Get
 obj, err := c.ObjectGet(ctx, uuid)
 
+// Get by barcode (pass the raw scancode, without URL encoding)
+obj, err = c.ObjectGetByBarcode(ctx, "INV/10001")
+
 // List with filtering
 objects, err := c.ObjectsList(ctx, &models.ListOptions{
     Page:    1,
@@ -90,6 +93,37 @@ resp, err := c.ObjectAddFiles(ctx, uuid, []models.FileAttachment{
 resp, err = c.ObjectRemoveFiles(ctx, uuid, []models.FileAttachment{
     {FieldKey: "photo", FileUUID: "file-uuid"},
 })
+```
+
+### History
+
+History endpoints return recorded changes newest first, together with pagination metadata:
+
+```go
+history, err := c.ObjectHistory(ctx, "object-uuid", &models.HistoryListOptions{
+    Page:    1,
+    PerPage: 50,
+})
+// history.Items, history.Page, history.PerPage, history.Total
+```
+
+Also available: `RoomHistory`, `LocationHistory`, `PersonHistory`, `TaskHistory`, and
+`RentalCaseHistory`, with the same UUID and options arguments. Passing `nil` options
+uses the API defaults (page 1, 50 entries per page; maximum 200).
+
+Object history entries are dynamic maps that preserve asset, task, rental-case, and
+object-merge payloads. Other history entries are typed structs; their `Details`
+field contains a JSON string or an empty string, and `OccurredAt` is a UTC timestamp.
+
+### PDF Reports
+
+```go
+templates, err := c.ReportTemplatesList(ctx)
+pdf, err := c.ReportCreate(ctx, models.CreateReport{
+    ReportTemplateUUID: "template-uuid",
+    ObjectUUIDs:        []string{"object-uuid-1", "object-uuid-2"},
+})
+// pdf contains the generated PDF bytes; the API does not store the document.
 ```
 
 ### Files
