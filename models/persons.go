@@ -9,9 +9,8 @@ import (
 
 // Person represents a person in the seventhings asset-tracking system.
 //
-// Field tags follow the live API response, which uses snake_case and
-// differs from the OpenAPI spec (the spec documents `uuid`/`firstname`/
-// `lastname`, but the wire format is `person_uuid`/`first_name`/`last_name`).
+// UUID accepts both the legacy person_uuid field and the newer uuid field.
+// Marshaling retains the legacy field names for compatibility.
 type Person struct {
 	UUID      string  `json:"person_uuid"`
 	ID        int     `json:"id"`
@@ -52,17 +51,25 @@ func (p *Person) UnmarshalJSON(data []byte) error {
 	// fields. The Fields tag is json:"-", so it is not touched here.
 	type personAlias Person
 	var typed personAlias
-	if err := json.Unmarshal(data, &typed); err != nil {
+	wire := struct {
+		*personAlias
+		UUID string `json:"uuid"`
+	}{personAlias: &typed}
+	if err := json.Unmarshal(data, &wire); err != nil {
 		return err
 	}
-	*p = Person(typed)
+	// Preserve the legacy value if both names are present.
+	if typed.UUID == "" {
+		typed.UUID = wire.UUID
+	}
 
 	// Capture the complete payload verbatim, including unmapped custom fields.
 	var raw Fields
 	if err := json.Unmarshal(data, &raw); err != nil {
 		return err
 	}
-	p.Fields = raw
+	typed.Fields = raw
+	*p = Person(typed)
 	return nil
 }
 

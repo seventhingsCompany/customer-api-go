@@ -5,6 +5,7 @@ package seventhings_test
 import (
 	"bytes"
 	"context"
+	"reflect"
 	"testing"
 
 	"github.com/SeventhingsCompany/customer-api-go/models"
@@ -21,21 +22,53 @@ func liveEntityUUID(t *testing.T, fields map[string]any, key string) string {
 	return ""
 }
 
-func verifyLiveHistory[T any](t *testing.T, uuid string, fetch func(context.Context, string, *models.HistoryListOptions) (*models.HistoryResponse[T], error)) {
+func liveEntityUUIDs(t *testing.T, items []map[string]any, key string) []string {
 	t.Helper()
-	if uuid == "" {
-		t.Fatal("empty entity UUID")
+	uuids := make([]string, 0, len(items))
+	for _, item := range items {
+		uuids = append(uuids, liveEntityUUID(t, item, key))
 	}
-	for _, page := range []int{1, 2} {
-		got, err := fetch(t.Context(), uuid, &models.HistoryListOptions{Page: page, PerPage: 1})
+	return uuids
+}
+
+func verifyLiveHistory[T any](t *testing.T, fetch func(context.Context, string, *models.HistoryListOptions) (*models.HistoryResponse[T], error), uuids ...string) {
+	t.Helper()
+	for _, uuid := range uuids {
+		if uuid == "" {
+			t.Fatal("empty entity UUID")
+		}
+		first, err := fetch(t.Context(), uuid, &models.HistoryListOptions{Page: 1, PerPage: 1})
 		if err != nil {
-			t.Fatalf("history page %d: %v", page, err)
+			t.Fatalf("history page 1: %v", err)
 		}
-		if got.Page != page || got.PerPage != 1 || got.Total < 0 || len(got.Items) > 1 || got.Items == nil {
-			t.Fatalf("invalid history pagination: page=%d per_page=%d total=%d items=%d", got.Page, got.PerPage, got.Total, len(got.Items))
+		if first.Page != 1 || first.PerPage != 1 || first.Total < 0 || len(first.Items) != min(first.Total, 1) || first.Items == nil {
+			t.Fatalf("invalid first page: page=%d per_page=%d total=%d items=%d", first.Page, first.PerPage, first.Total, len(first.Items))
 		}
-		t.Logf("page=%d per_page=%d total=%d decoded_entries=%d", got.Page, got.PerPage, got.Total, len(got.Items))
+		if first.Total < 2 {
+			// The spec does not prescribe out-of-range behavior. The live API
+			// clamps to the last page, so look for a valid second page instead.
+			continue
+		}
+		second, err := fetch(t.Context(), uuid, &models.HistoryListOptions{Page: 2, PerPage: 1})
+		if err != nil {
+			t.Fatalf("history page 2: %v", err)
+		}
+		if second.Page != 2 || second.PerPage != 1 || second.Total < 2 || len(second.Items) != 1 {
+			t.Fatalf("invalid second page: page=%d per_page=%d total=%d items=%d", second.Page, second.PerPage, second.Total, len(second.Items))
+		}
+		// Compare with a two-entry page to verify the offset and ordering.
+		combined, err := fetch(t.Context(), uuid, &models.HistoryListOptions{Page: 1, PerPage: 2})
+		if err != nil {
+			t.Fatal(err)
+		}
+		want := append(append([]T{}, first.Items...), second.Items...)
+		if combined.Page != 1 || combined.PerPage != 2 || !reflect.DeepEqual(combined.Items, want) {
+			t.Fatal("separate history pages do not match a two-entry page (or history changed during the test)")
+		}
+		t.Logf("verified two populated history pages and ordering; total=%d", first.Total)
+		return
 	}
+	t.Logf("validated first pages for %d resources; none had multiple history entries", len(uuids))
 }
 
 // TestIntegrationNewEndpoints exercises the new spec endpoints using existing
@@ -58,7 +91,7 @@ func TestIntegrationNewEndpoints(t *testing.T) {
 			t.Fatalf("existing ObjectGet endpoint: %v", err)
 		}
 		t.Log("existing ObjectGet endpoint succeeded for the same UUID")
-		verifyLiveHistory(t, uuid, c.ObjectHistory)
+		verifyLiveHistory(t, c.ObjectHistory, liveEntityUUIDs(t, items, "asset_uuid")...)
 	})
 	t.Run("ObjectGetByBarcode", func(t *testing.T) {
 		items, err := c.ObjectsList(ctx, opts)
@@ -90,7 +123,7 @@ func TestIntegrationNewEndpoints(t *testing.T) {
 		if len(items) == 0 {
 			t.Skip("instance has no rooms")
 		}
-		verifyLiveHistory(t, liveEntityUUID(t, items[0], "room_uuid"), c.RoomHistory)
+		verifyLiveHistory(t, c.RoomHistory, liveEntityUUIDs(t, items, "room_uuid")...)
 	})
 	t.Run("LocationHistory", func(t *testing.T) {
 		items, err := c.LocationsList(ctx, opts)
@@ -100,10 +133,10 @@ func TestIntegrationNewEndpoints(t *testing.T) {
 		if len(items) == 0 {
 			t.Skip("instance has no locations")
 		}
-		verifyLiveHistory(t, liveEntityUUID(t, items[0], "location_uuid"), c.LocationHistory)
+		verifyLiveHistory(t, c.LocationHistory, liveEntityUUIDs(t, items, "location_uuid")...)
 	})
 	t.Run("PersonHistory", func(t *testing.T) {
-		perPage := 1
+		perPage := 10
 		items, err := c.PersonsList(ctx, &models.PersonListOptions{PerPage: &perPage})
 		if err != nil {
 			t.Fatal(err)
@@ -111,12 +144,11 @@ func TestIntegrationNewEndpoints(t *testing.T) {
 		if len(items.Items) == 0 {
 			t.Skip("instance has no persons")
 		}
-		uuid := items.Items[0].UUID
-		if uuid == "" {
-			uuid = liveEntityUUID(t, items.Items[0].Fields, "person_uuid")
-			t.Log("person UUID recovered from raw fields; typed Person.UUID was empty")
+		uuids := make([]string, 0, len(items.Items))
+		for _, person := range items.Items {
+			uuids = append(uuids, person.UUID)
 		}
-		verifyLiveHistory(t, uuid, c.PersonHistory)
+		verifyLiveHistory(t, c.PersonHistory, uuids...)
 	})
 	t.Run("TaskHistory", func(t *testing.T) {
 		items, err := c.TasksList(ctx, nil)
@@ -126,7 +158,11 @@ func TestIntegrationNewEndpoints(t *testing.T) {
 		if len(items) == 0 {
 			t.Skip("instance has no tasks")
 		}
-		verifyLiveHistory(t, items[0].UUID, c.TaskHistory)
+		uuids := make([]string, 0, min(len(items), 10))
+		for _, task := range items[:min(len(items), 10)] {
+			uuids = append(uuids, task.UUID)
+		}
+		verifyLiveHistory(t, c.TaskHistory, uuids...)
 	})
 	t.Run("RentalCaseHistory", func(t *testing.T) {
 		items, err := c.RentalCasesList(ctx, opts)
@@ -136,7 +172,11 @@ func TestIntegrationNewEndpoints(t *testing.T) {
 		if len(items) == 0 {
 			t.Skip("instance has no rental cases")
 		}
-		verifyLiveHistory(t, items[0].UUID, c.RentalCaseHistory)
+		uuids := make([]string, 0, len(items))
+		for _, rental := range items {
+			uuids = append(uuids, rental.UUID)
+		}
+		verifyLiveHistory(t, c.RentalCaseHistory, uuids...)
 	})
 	t.Run("Reports", func(t *testing.T) {
 		templates, err := c.ReportTemplatesList(ctx)
