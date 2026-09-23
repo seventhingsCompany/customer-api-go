@@ -149,3 +149,54 @@ func TestPersonRejectsInvalidUUIDTypes(t *testing.T) {
 		}
 	}
 }
+
+func TestPersonWrappedResponse(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		body string
+	}{
+		{"legacy inner UUID", `{"uuid":"p-1","fields":{"person_uuid":"p-1","id":7,"email":"ada@example.test","first_name":"Ada","last_name":"Lovelace","department":"IT","cost_center":"CC-1","documents":[{"uuid":"file-1"}]}}`},
+		{"envelope UUID only", `{"uuid":"p-1","fields":{"id":7,"email":"ada@example.test","first_name":"Ada","last_name":"Lovelace","department":"IT","cost_center":"CC-1","documents":[{"uuid":"file-1"}]}}`},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			var p Person
+			if err := json.Unmarshal([]byte(tc.body), &p); err != nil {
+				t.Fatal(err)
+			}
+			if p.UUID != "p-1" || p.ID != 7 || p.Email != "ada@example.test" {
+				t.Fatalf("incorrect identity: UUID=%q ID=%d Email=%q", p.UUID, p.ID, p.Email)
+			}
+			if p.Firstname == nil || *p.Firstname != "Ada" || p.Lastname == nil || *p.Lastname != "Lovelace" || p.Department == nil || *p.Department != "IT" {
+				t.Fatalf("wrapped typed fields not decoded: %+v", p)
+			}
+			var envelope struct {
+				Fields Fields `json:"fields"`
+			}
+			if err := json.Unmarshal([]byte(tc.body), &envelope); err != nil {
+				t.Fatal(err)
+			}
+			if !reflect.DeepEqual(p.Fields, envelope.Fields) || !reflect.DeepEqual(p.Documents, envelope.Fields["documents"]) {
+				t.Fatal("wrapped custom fields or attachments were lost")
+			}
+			var list PersonListResponse
+			if err := json.Unmarshal([]byte(`{"items":[`+tc.body+`],"total":1}`), &list); err != nil {
+				t.Fatal(err)
+			}
+			if len(list.Items) != 1 || !reflect.DeepEqual(list.Items[0], p) {
+				t.Fatal("wrapped list item differs from detail response")
+			}
+		})
+	}
+}
+
+func TestPersonWrappedResponseInvalidFields(t *testing.T) {
+	for _, body := range []string{
+		`{"uuid":"p-1","fields":"invalid"}`,
+		`{"uuid":"p-1","fields":{"id":"invalid"}}`,
+	} {
+		var p Person
+		if err := json.Unmarshal([]byte(body), &p); err == nil {
+			t.Errorf("expected decoding error for %s", body)
+		}
+	}
+}
