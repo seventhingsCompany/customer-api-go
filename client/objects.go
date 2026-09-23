@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"net/url"
 
 	"github.com/SeventhingsCompany/customer-api-go/models"
 )
@@ -60,6 +61,20 @@ func (c *Client) ObjectCreate(ctx context.Context, fields map[string]any) (strin
 // ObjectGet returns a single object by UUID.
 func (c *Client) ObjectGet(ctx context.Context, uuid string) (map[string]any, error) {
 	resp, err := c.Get(ctx, "object/"+uuid)
+	if err != nil {
+		return nil, err
+	}
+	var result map[string]any
+	if err := DecodeJSON(resp, &result); err != nil {
+		return nil, err
+	}
+	return result, nil
+}
+
+// ObjectGetByBarcode returns an object by its scancode, including archived objects.
+// Pass the barcode unescaped; it is URL-encoded as a single path segment.
+func (c *Client) ObjectGetByBarcode(ctx context.Context, barcode string) (map[string]any, error) {
+	resp, err := c.Get(ctx, "object/by-barcode/"+url.PathEscape(barcode))
 	if err != nil {
 		return nil, err
 	}
