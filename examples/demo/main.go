@@ -1,6 +1,6 @@
 // Command demo exercises the core seventhings SDK modules (Auth, Objects,
-// Files, Tasks, Persons) against a real instance. It also showcases the SDK
-// ergonomics helpers: typed field access (models.Fields), auto-paginating
+// Files, Tasks, Persons, History, PDF Reports) against a real instance. It also
+// showcases the SDK ergonomics helpers: typed field access (models.Fields), auto-paginating
 // iterators (ObjectsAll, PersonsAll, …), the fluent ListOptions builder with
 // filter constructors (models.Eq/Like/…), mandatory-field discovery
 // (MandatoryFieldDefinitions/MissingMandatoryFields), and error predicates
@@ -70,6 +70,11 @@ func main() {
 	objUUID := must(c.ObjectCreate(ctx, newObj))
 	pf("Objects", "Created object %s", objUUID)
 
+	// Barcode lookup accepts the raw scancode and URL-encodes it for you.
+	barcode := newObj["barcode"].(string)
+	byBarcode := must(c.ObjectGetByBarcode(ctx, barcode))
+	pf("Objects", "Found by barcode %s — inventory_name=%s", barcode, byBarcode["inventory_name"])
+
 	// Patch
 	mustDo(c.ObjectPatch(ctx, objUUID, map[string]any{"inventory_name": "SDK Demo Object (updated)"}))
 	updated := must(c.ObjectGet(ctx, objUUID))
@@ -81,6 +86,37 @@ func main() {
 
 	mustDo(c.ObjectUnarchive(ctx, objUUID))
 	pf("Objects", "Unarchived object %s", objUUID)
+
+	// History pages include metadata; only request another page when there
+	// are more entries. The API may clamp requests beyond the final page.
+	historyOpts := &models.HistoryListOptions{Page: 1, PerPage: 5}
+	objectHistory := must(c.ObjectHistory(ctx, objUUID, historyOpts))
+	printHistory("Objects", objectHistory)
+	for _, entry := range objectHistory.Items {
+		// Object history is dynamic: merge events carry absorbedObjectData,
+		// while asset/task/rental_case events carry properties.
+		pf("History", "Object event: type=%v date=%v", entry["type"], entry["date"])
+	}
+	if objectHistory.Page*objectHistory.PerPage < objectHistory.Total {
+		printHistory("Objects", must(c.ObjectHistory(ctx, objUUID, &models.HistoryListOptions{
+			Page: objectHistory.Page + 1, PerPage: objectHistory.PerPage,
+		})))
+	}
+
+	// Render the temporary object before deleting it. ReportCreate returns
+	// PDF bytes; the API does not store the generated document.
+	section("Reports", "Listing PDF templates…")
+	templates := must(c.ReportTemplatesList(ctx))
+	pf("Reports", "Found %d template(s)", len(templates))
+	if len(templates) > 0 {
+		pdf := must(c.ReportCreate(ctx, models.CreateReport{
+			ReportTemplateUUID: templates[0].UUID,
+			ObjectUUIDs:        []string{objUUID},
+		}))
+		pf("Reports", "Rendered template %q — %d PDF bytes", templates[0].Name, len(pdf))
+	} else {
+		pf("Reports", "Skipping generation: no PDF templates configured")
+	}
 
 	// Delete + confirm 404
 	mustDo(c.ObjectDelete(ctx, objUUID))
@@ -202,6 +238,7 @@ func main() {
 	// Close the task
 	mustDo(c.TaskUpdateStatus(ctx, taskUUID, models.TaskStatusClosed))
 	pf("Tasks", "Updated task status to closed")
+	printHistory("Tasks", must(c.TaskHistory(ctx, taskUUID, historyOpts)))
 
 	// Delete the task + confirm 404
 	mustDo(c.TaskDelete(ctx, taskUUID))
@@ -275,6 +312,12 @@ func main() {
 
 	mustDo(c.PersonPatch(ctx, personUUID, map[string]any{"department": "IT"}))
 	pf("Persons", "Patched person %s (department=IT)", personUUID)
+	personHistory := must(c.PersonHistory(ctx, personUUID, historyOpts))
+	printHistory("Persons", personHistory)
+	for _, entry := range personHistory.Items {
+		pf("History", "Person event: %s at %s", entry.EventName, entry.OccurredAt)
+		// entry.Details is a JSON-encoded string (or empty), not a map.
+	}
 
 	mustDo(c.PersonDelete(ctx, personUUID))
 	pf("Persons", "Deleted person %s", personUUID)
@@ -293,6 +336,28 @@ func main() {
 	//       },
 	//   })
 
+	// ── History for existing rooms, locations, and rental cases ───────────
+	section("History", "Reading history for existing resources…")
+	sampleOpts := &models.ListOptions{Page: 1, PerPage: 1}
+	rooms := must(c.RoomsList(ctx, sampleOpts))
+	if len(rooms) > 0 {
+		printHistory("Rooms", must(c.RoomHistory(ctx, resourceUUID(rooms[0], "room_uuid"), historyOpts)))
+	} else {
+		pf("History", "Skipping room history: no rooms available")
+	}
+	locations := must(c.LocationsList(ctx, sampleOpts))
+	if len(locations) > 0 {
+		printHistory("Locations", must(c.LocationHistory(ctx, resourceUUID(locations[0], "location_uuid"), historyOpts)))
+	} else {
+		pf("History", "Skipping location history: no locations available")
+	}
+	rentals := must(c.RentalCasesList(ctx, sampleOpts))
+	if len(rentals) > 0 {
+		printHistory("Rentals", must(c.RentalCaseHistory(ctx, rentals[0].UUID, historyOpts)))
+	} else {
+		pf("History", "Skipping rental history: no rental cases available")
+	}
+
 	// ── Auth cleanup ─────────────────────────────────────────────────────
 	section("Auth", "Revoking tokens…")
 
@@ -303,6 +368,21 @@ func main() {
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
+
+func printHistory[T any](resource string, page *models.HistoryResponse[T]) {
+	pf("History", "%s — %d entries, page=%d per_page=%d total=%d", resource, len(page.Items), page.Page, page.PerPage, page.Total)
+}
+
+func resourceUUID(fields models.Fields, key string) string {
+	if uuid, ok := fields.String(key); ok && uuid != "" {
+		return uuid
+	}
+	if uuid, ok := fields.String("uuid"); ok && uuid != "" {
+		return uuid
+	}
+	log.Fatalf("Resource is missing %s/uuid", key)
+	return ""
+}
 
 func requireEnv(key string) string {
 	v := os.Getenv(key)
