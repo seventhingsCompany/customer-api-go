@@ -57,7 +57,7 @@ func TestPersonUnmarshalWithinListResponse(t *testing.T) {
 	raw := `{
 		"items": [
 			{"person_uuid": "p-1", "id": 1, "email": "a@b.com", "cost_center": "CC-1"},
-			{"uuid": "p-2", "id": 2, "email": "c@d.com"}
+			{"person_uuid": "p-2", "id": 2, "email": "c@d.com"}
 		],
 		"page": 1, "per_page": 50, "sort_by": "id", "order": "asc", "total": 2
 	}`
@@ -70,7 +70,7 @@ func TestPersonUnmarshalWithinListResponse(t *testing.T) {
 		t.Fatalf("expected 2 items, got %d", len(resp.Items))
 	}
 	if resp.Items[0].UUID != "p-1" || resp.Items[1].UUID != "p-2" {
-		t.Fatalf("UUIDs were not decoded from both field names")
+		t.Fatalf("person_uuid fields were not decoded")
 	}
 	// Custom field on the first item is preserved through the list decode.
 	if cc, ok := resp.Items[0].Fields.String("cost_center"); !ok || cc != "CC-1" {
@@ -108,17 +108,17 @@ func TestPersonMarshalRoundTripUnaffected(t *testing.T) {
 	}
 }
 
-func TestPersonUUIDCompatibility(t *testing.T) {
+func TestPersonFlatIdentity(t *testing.T) {
 	for _, tc := range []struct {
 		name string
 		body string
 		want string
 	}{
 		{"legacy", `{"person_uuid":"legacy","custom":"value"}`, "legacy"},
-		{"current", `{"uuid":"current","custom":"value"}`, "current"},
+		{"unmapped uuid", `{"uuid":"current","custom":"value"}`, ""},
 		{"both", `{"person_uuid":"legacy","uuid":"current"}`, "legacy"},
-		{"empty legacy", `{"person_uuid":"","uuid":"current"}`, "current"},
-		{"null legacy", `{"person_uuid":null,"uuid":"current"}`, "current"},
+		{"empty person UUID", `{"person_uuid":"","uuid":"current"}`, ""},
+		{"null person UUID", `{"person_uuid":null,"uuid":"current"}`, ""},
 		{"missing", `{}`, ""},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -142,7 +142,7 @@ func TestPersonUUIDCompatibility(t *testing.T) {
 }
 
 func TestPersonRejectsInvalidUUIDTypes(t *testing.T) {
-	for _, body := range []string{`{"uuid":42}`, `{"person_uuid":42}`} {
+	for _, body := range []string{`{"person_uuid":42}`} {
 		var p Person
 		if err := json.Unmarshal([]byte(body), &p); err == nil {
 			t.Errorf("expected a decoding error for %s", body)
@@ -150,7 +150,7 @@ func TestPersonRejectsInvalidUUIDTypes(t *testing.T) {
 	}
 }
 
-func TestPersonWrappedResponse(t *testing.T) {
+func TestPersonDoesNotUnwrapFields(t *testing.T) {
 	for _, tc := range []struct {
 		name string
 		body string
@@ -163,20 +163,15 @@ func TestPersonWrappedResponse(t *testing.T) {
 			if err := json.Unmarshal([]byte(tc.body), &p); err != nil {
 				t.Fatal(err)
 			}
-			if p.UUID != "p-1" || p.ID != 7 || p.Email != "ada@example.test" {
-				t.Fatalf("incorrect identity: UUID=%q ID=%d Email=%q", p.UUID, p.ID, p.Email)
+			if p.UUID != "" || p.ID != 0 || p.Email != "" {
+				t.Fatalf("nested fields unexpectedly decoded: %+v", p)
 			}
-			if p.Firstname == nil || *p.Firstname != "Ada" || p.Lastname == nil || *p.Lastname != "Lovelace" || p.Department == nil || *p.Department != "IT" {
-				t.Fatalf("wrapped typed fields not decoded: %+v", p)
-			}
-			var envelope struct {
-				Fields Fields `json:"fields"`
-			}
-			if err := json.Unmarshal([]byte(tc.body), &envelope); err != nil {
+			var raw Fields
+			if err := json.Unmarshal([]byte(tc.body), &raw); err != nil {
 				t.Fatal(err)
 			}
-			if !reflect.DeepEqual(p.Fields, envelope.Fields) || !reflect.DeepEqual(p.Documents, envelope.Fields["documents"]) {
-				t.Fatal("wrapped custom fields or attachments were lost")
+			if !reflect.DeepEqual(p.Fields, raw) {
+				t.Fatal("flat field map was changed")
 			}
 			var list PersonListResponse
 			if err := json.Unmarshal([]byte(`{"items":[`+tc.body+`],"total":1}`), &list); err != nil {
@@ -189,14 +184,14 @@ func TestPersonWrappedResponse(t *testing.T) {
 	}
 }
 
-func TestPersonWrappedResponseInvalidFields(t *testing.T) {
+func TestPersonPreservesArbitraryFieldsValues(t *testing.T) {
 	for _, body := range []string{
 		`{"uuid":"p-1","fields":"invalid"}`,
 		`{"uuid":"p-1","fields":{"id":"invalid"}}`,
 	} {
 		var p Person
-		if err := json.Unmarshal([]byte(body), &p); err == nil {
-			t.Errorf("expected decoding error for %s", body)
+		if err := json.Unmarshal([]byte(body), &p); err != nil {
+			t.Errorf("unexpected decoding error for %s: %v", body, err)
 		}
 	}
 }

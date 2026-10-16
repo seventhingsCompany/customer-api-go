@@ -57,6 +57,10 @@ func TestRoomAndLocationResponseFormats(t *testing.T) {
 						t.Fatal(err)
 					}
 					want := map[string]any{"uuid": "resource-1", "id": float64(42), "name": "Office", "cost_center": "CC-1", "picture": []any{map[string]any{"uuid": "file-1"}}}
+					if format == "wrapped" {
+						delete(want, "uuid")
+						want = map[string]any{"uuid": "resource-1", "fields": want}
+					}
 					if !reflect.DeepEqual(got, want) {
 						t.Fatalf("got %v, want %v", got, want)
 					}

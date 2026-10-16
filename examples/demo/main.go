@@ -1,5 +1,5 @@
 // Command demo exercises the core seventhings SDK modules (Auth, Objects,
-// Files, Tasks, Persons, History, PDF Reports) against a real instance. It also
+// Files, Tasks, Persons, Catalog, Rentals, History, PDF Reports) against a real instance. It also
 // showcases the SDK ergonomics helpers: typed field access (models.Fields), auto-paginating
 // iterators (ObjectsAll, PersonsAll, …), the fluent ListOptions builder with
 // filter constructors (models.Eq/Like/…), mandatory-field discovery
@@ -16,6 +16,7 @@ package main
 
 import (
 	"context"
+	"flag"
 	"fmt"
 	"log"
 	"os"
@@ -28,9 +29,9 @@ import (
 
 func main() {
 	// ── Configuration ────────────────────────────────────────────────────
+	requestsPerMinute := flag.Int("rate-limit", client.DefaultRequestsPerMinute, "requests per minute per client (0 disables throttling)")
+	flag.Parse()
 	baseURL := requireEnv("SEVENTHINGS_BASE_URL")
-	username := requireEnv("SEVENTHINGS_USERNAME")
-	password := requireEnv("SEVENTHINGS_PASSWORD")
 	clientID := requireEnv("SEVENTHINGS_CLIENT_ID")
 
 	ctx := context.Background()
@@ -38,12 +39,22 @@ func main() {
 	// ── Auth ─────────────────────────────────────────────────────────────
 	section("Auth", "Logging in…")
 
-	c := client.New(baseURL, client.WithClientID(clientID))
-	tok, err := c.Login(ctx, username, password, clientID)
+	c := client.New(baseURL, client.WithClientID(clientID), client.WithRateLimit(*requestsPerMinute))
+	var tok *models.TokenResponse
+	var err error
+	if code := os.Getenv("SEVENTHINGS_AUTH_CODE"); code != "" {
+		tok, err = c.LoginAuthorizationCode(ctx, code, requireEnv("SEVENTHINGS_CODE_VERIFIER"), requireEnv("SEVENTHINGS_REDIRECT_URI"), clientID)
+		pf("Auth", "Using OAuth authorization code + PKCE")
+	} else {
+		tok, err = c.Login(ctx, requireEnv("SEVENTHINGS_USERNAME"), requireEnv("SEVENTHINGS_PASSWORD"), clientID)
+	}
 	mustDo(err)
-
-	truncated := tok.AccessToken[:20] + "…"
-	pf("Auth", "Logged in — user_id=%d, token=%s", tok.UserID, truncated)
+	pf("Auth", "Logged in — user_id=%d", tok.UserID)
+	if *requestsPerMinute > 0 {
+		pf("Rate", "Limit: %d requests/minute, evenly spaced; auth, uploads and downloads share it", *requestsPerMinute)
+	} else {
+		pf("Rate", "Request throttling disabled")
+	}
 
 	// ── Objects ──────────────────────────────────────────────────────────
 	section("Objects", "Listing objects…")
@@ -170,7 +181,7 @@ func main() {
 	for obj, err := range c.ObjectsAll(ctx, models.NewListOptions().WithPerPage(50)) {
 		mustDo(err)
 		name, _ := obj.String("inventory_name")
-		pf("Objects", "  • %s (%s)", name, obj.UUID())
+		pf("Objects", "  • %s (%s)", name, resourceUUID(obj, "asset_uuid"))
 		if seen++; seen >= 10 {
 			break
 		}
@@ -222,7 +233,8 @@ func main() {
 	}))
 	pf("Tasks", "Created reference object %s", taskObjUUID)
 
-	deadline := "2026-12-31"
+	deadline := time.Now().UTC().AddDate(1, 0, 0).Format("2006-01-02")
+	notify := false
 	taskUUID := must(c.TaskCreate(ctx, models.CreateTask{
 		Title:     "SDK Demo Task",
 		Deadline:  &deadline,
@@ -230,10 +242,23 @@ func main() {
 		References: []models.TaskReferenceInput{
 			{Type: models.TaskReferenceTypeAsset, UUID: taskObjUUID},
 		},
-		Reminders:         []models.TimeInterval{{Unit: models.TimeIntervalDays, Value: 1}},
+		// Nil reminders are omitted. Notify=false avoids notifying the assignee.
+		Notify:            &notify,
 		RecurringSchedule: nil,
 	}))
 	pf("Tasks", "Created task %s referencing object %s", taskUUID, taskObjUUID)
+	for _, reminders := range [][]models.TimeInterval{{{Unit: models.TimeIntervalDays, Value: 0}}, {}} {
+		mustDo(c.TaskUpdate(ctx, taskUUID, models.UpdateTask{
+			Title: "SDK Demo Task", Deadline: &deadline, Assignees: []string{currentUser.UUID},
+			References: []models.TaskReferenceInput{{Type: models.TaskReferenceTypeAsset, UUID: taskObjUUID}},
+			Reminders:  reminders, Notify: &notify,
+		}))
+		task := must(c.TaskGet(ctx, taskUUID))
+		if len(task.Reminders) != len(reminders) || (len(reminders) > 0 && task.Reminders[0] != reminders[0]) {
+			log.Fatalf("[Tasks] Unexpected reminders: %+v", task.Reminders)
+		}
+		pf("Tasks", "Verified reminders: %+v (empty disables reminders)", task.Reminders)
+	}
 
 	// Close the task
 	mustDo(c.TaskUpdateStatus(ctx, taskUUID, models.TaskStatusClosed))
@@ -335,6 +360,11 @@ func main() {
 	//           "email": {models.FilterEq: personEmail},
 	//       },
 	//   })
+
+	// New API features use their own temporary resources and clean up on error.
+	mustDo(demoCatalog(ctx, c))
+	mustDo(demoTimedRental(ctx, c, currentUser.UUID))
+	mustDo(demoThumbnail(ctx, c))
 
 	// ── History for existing rooms, locations, and rental cases ───────────
 	section("History", "Reading history for existing resources…")
