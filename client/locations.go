@@ -24,9 +24,6 @@ func (c *Client) LocationsList(ctx context.Context, opts *models.ListOptions) ([
 	if err := DecodeJSON(resp, &wrapper); err != nil {
 		return nil, err
 	}
-	for i, item := range wrapper.Items {
-		wrapper.Items[i] = unwrapResourceFields(item)
-	}
 	return wrapper.Items, nil
 }
 
@@ -70,7 +67,7 @@ func (c *Client) LocationGet(ctx context.Context, uuid string) (map[string]any, 
 	if err := DecodeJSON(resp, &result); err != nil {
 		return nil, err
 	}
-	return unwrapResourceFields(result), nil
+	return result, nil
 }
 
 // LocationPatch updates a location and returns the updated resource.
@@ -87,7 +84,7 @@ func (c *Client) LocationPatch(ctx context.Context, uuid string, fields map[stri
 	if err := DecodeJSON(resp, &result); err != nil {
 		return nil, err
 	}
-	return unwrapResourceFields(result), nil
+	return result, nil
 }
 
 // LocationDelete deletes a location by UUID.

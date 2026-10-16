@@ -5,3 +5,6 @@ docs/
 
 # Local credentials for integration tests / examples/demo.
 .env
+
+# Locally built demo/test executable.
+/bin/seventhings-demo

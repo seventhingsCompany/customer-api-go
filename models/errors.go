@@ -5,6 +5,9 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"strconv"
+	"strings"
+	"time"
 )
 
 // APIError represents an error response from the seventhings API.
@@ -12,10 +15,57 @@ type APIError struct {
 	StatusCode int
 	Status     string
 	Body       string
+	// Header is a copy of the response headers, including Retry-After when sent.
+	// Headers are not included in Error() output.
+	Header http.Header
 }
 
 func (e *APIError) Error() string {
 	return fmt.Sprintf("seventhings API error %d (%s): %s", e.StatusCode, e.Status, e.Body)
+}
+
+// RetryAfter parses the standard Retry-After response header as delay-seconds
+// or an HTTP date relative to now. Past dates return zero with ok=true. Missing,
+// repeated, invalid or unrepresentably large values return zero with ok=false.
+// This helper does not wait or retry; callers decide whether to requeue a request.
+func (e *APIError) RetryAfter(now time.Time) (delay time.Duration, ok bool) {
+	if e == nil {
+		return 0, false
+	}
+	values := e.Header.Values("Retry-After")
+	if len(values) != 1 {
+		return 0, false
+	}
+	value := strings.TrimSpace(values[0])
+	if value == "" {
+		return 0, false
+	}
+	digits := true
+	for _, c := range value {
+		if c < '0' || c > '9' {
+			digits = false
+			break
+		}
+	}
+	if digits {
+		seconds, err := strconv.ParseUint(value, 10, 64)
+		if err != nil || seconds > uint64((1<<63-1)/time.Second) {
+			return 0, false
+		}
+		return time.Duration(seconds) * time.Second, true
+	}
+	date, err := http.ParseTime(value)
+	if err != nil {
+		return 0, false
+	}
+	delay = date.Sub(now)
+	if delay < 0 {
+		delay = 0
+	} else if now.Add(delay).Before(date) {
+		// time.Time.Sub saturates when the difference exceeds time.Duration.
+		return 0, false
+	}
+	return delay, true
 }
 
 // IsStatusCode returns true if the error has the given HTTP status code.

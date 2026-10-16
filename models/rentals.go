@@ -73,6 +73,9 @@ type RentalCase struct {
 	Title               string                    `json:"title"`
 	Renter              *RentalCaseRenterResponse `json:"renter"`
 	References          []RentalCaseReference     `json:"references"`
+	IsFullDay           bool                      `json:"is_full_day"`
+	IssueAt             *string                   `json:"issue_at"`
+	DueAt               *string                   `json:"due_at"`
 	IssueDate           *string                   `json:"issue_date"`
 	IssueDateReminder   *TimeInterval             `json:"issue_date_reminder"`
 	DueDate             *string                   `json:"due_date"`
@@ -86,9 +89,14 @@ type RentalCase struct {
 }
 
 // CreateRentalCase is the request body for creating a rental case.
+// SDK create calls require a non-nil Renter to avoid a server-side failure.
 type CreateRentalCase struct {
+	// Omit IsFullDay to let the API infer the kind from IssueAt and DueAt.
+	IsFullDay           *bool                      `json:"is_full_day,omitempty"`
+	IssueAt             *string                    `json:"issue_at,omitempty"`
+	DueAt               *string                    `json:"due_at,omitempty"`
 	Title               string                     `json:"title"`
-	Renter              *RentalCaseRenter          `json:"renter"`
+	Renter              *RentalCaseRenter          `json:"renter,omitempty"`
 	References          []RentalCaseReferenceInput `json:"references"`
 	IssueDate           string                     `json:"issue_date"`
 	IssueDateReminder   *TimeInterval              `json:"issue_date_reminder,omitempty"`
@@ -99,10 +107,15 @@ type CreateRentalCase struct {
 	Attachments         []string                   `json:"attachments"`
 }
 
-// UpdateRentalCase is the request body for updating a rental case.
+// UpdateRentalCase is the complete replacement body for updating a rental case.
+// SDK update calls require a non-nil Renter to avoid a server-side failure.
 type UpdateRentalCase struct {
+	// Omit the kind and times to retain the stored kind and move times to the dates.
+	IsFullDay           *bool                      `json:"is_full_day,omitempty"`
+	IssueAt             *string                    `json:"issue_at,omitempty"`
+	DueAt               *string                    `json:"due_at,omitempty"`
 	Title               string                     `json:"title"`
-	Renter              *RentalCaseRenter          `json:"renter"`
+	Renter              *RentalCaseRenter          `json:"renter,omitempty"`
 	References          []RentalCaseReferenceInput `json:"references"`
 	IssueDate           string                     `json:"issue_date"`
 	IssueDateReminder   *TimeInterval              `json:"issue_date_reminder,omitempty"`

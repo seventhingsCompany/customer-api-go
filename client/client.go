@@ -23,10 +23,11 @@ type Response struct {
 
 // Client is the seventhings API client.
 type Client struct {
-	httpClient *http.Client
-	baseURL    string
-	token      string
-	clientID   string
+	httpClient  *http.Client
+	baseURL     string
+	token       string
+	clientID    string
+	rateLimiter *rateLimiter
 }
 
 // Option configures the Client.
@@ -50,8 +51,9 @@ func WithClientID(id string) Option {
 // instance (e.g. "https://example.seventhings.com").
 func New(instanceURL string, opts ...Option) *Client {
 	c := &Client{
-		httpClient: http.DefaultClient,
-		baseURL:    strings.TrimRight(instanceURL, "/") + "/customer-api/v1",
+		httpClient:  http.DefaultClient,
+		baseURL:     strings.TrimRight(instanceURL, "/") + "/customer-api/v1",
+		rateLimiter: newRateLimiter(DefaultRequestsPerMinute),
 	}
 	for _, opt := range opts {
 		opt(c)
@@ -158,6 +160,9 @@ func (c *Client) newRequest(ctx context.Context, method, path string, body io.Re
 }
 
 func (c *Client) do(req *http.Request) (*Response, error) {
+	if err := c.rateLimiter.wait(req.Context()); err != nil {
+		return nil, err
+	}
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
 		return nil, err
@@ -176,6 +181,7 @@ func (c *Client) do(req *http.Request) (*Response, error) {
 			StatusCode: resp.StatusCode,
 			Status:     resp.Status,
 			Body:       string(bodyBytes),
+			Header:     resp.Header.Clone(),
 		}
 	}
 

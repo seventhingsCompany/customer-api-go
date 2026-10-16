@@ -13,7 +13,7 @@ import (
 
 func newTestClient(t *testing.T, server *httptest.Server) *Client {
 	t.Helper()
-	return New(server.URL, WithHTTPClient(server.Client()))
+	return New(server.URL, WithHTTPClient(server.Client()), WithRateLimit(0))
 }
 
 func TestAuthenticatedRequestSendsBearer(t *testing.T) {

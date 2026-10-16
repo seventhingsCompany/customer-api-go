@@ -2,6 +2,8 @@
 
 Go client library for the [seventhings](https://seventhings.com) customer API. See the [API documentation](https://api.seventhings.com/customer-api/v1/) for details on available endpoints.
 
+Targets API description `v0.20143_c5f8b54b3_20261005`.
+
 ## Installation
 
 ```sh
@@ -42,6 +44,14 @@ if err != nil {
 c := client.New("https://example.seventhings.com")
 tok, err := c.LoginSSO(ctx, models.SSOProviderAzure, "auth-code", "client-id", nil)
 ```
+
+### OAuth Authorization Code + PKCE
+
+```go
+tok, err := c.LoginAuthorizationCode(ctx, "code", "original-code-verifier", "https://app.example/callback", "client-id")
+```
+
+Uses the form-encoded token endpoint and stores the access token and client ID for refresh.
 
 ## Usage
 
@@ -141,11 +151,17 @@ data, err := c.FileGetData(ctx, uuid)
 // Download thumbnail
 thumb, err := c.FileGetThumbnail(ctx, uuid)
 
+// Custom size (1–2000 pixels per dimension, preserving aspect ratio)
+thumb, err = c.FileGetThumbnailWithSize(ctx, uuid, 320, 240)
+
 // List all files
 files, err := c.FilesList(ctx)
 ```
 
 ### Tasks
+
+For create/update requests, nil `Reminders` is omitted; an explicit empty
+`[]models.TimeInterval{}` disables reminders. A zero interval reminds on the deadline.
 
 ```go
 uuid, err := c.TaskCreate(ctx, models.CreateTask{Title: "Inspect server room"})
@@ -158,13 +174,50 @@ err = c.TaskDelete(ctx, uuid)
 
 ### Rental Cases
 
+`CreateRentalCase` and `UpdateRentalCase` support `IsFullDay` (`*bool`),
+`IssueAt` and `DueAt` (`*string`, RFC 3339 timestamps). Explicit `false` selects
+a timed rental; the return time is exclusive. Leave these fields nil to use
+the API's inference/preservation rules. Responses include all three fields.
+
+**`RentalCaseUpdate` is a full replacement (PUT), not a partial patch.** Send all
+required fields and any optional values you want to retain. Both create and update
+require a non-nil `Renter` in the SDK: the current server returns HTTP 500 when it
+is omitted, despite the API description marking it optional. Missing renters return
+`client.ErrRentalCaseRenterRequired` locally without an HTTP request (detectable with
+`errors.Is`).
+
 ```go
+references := []models.RentalCaseReferenceInput{
+    {Type: models.RentalCaseReferenceTypeAsset, UUID: "object-uuid"},
+}
+renter := &models.RentalCaseRenter{Type: models.RenterTypePlain, Value: "John"}
 uuid, err := c.RentalCaseCreate(ctx, models.CreateRentalCase{
-    Renter: &models.RentalCaseRenter{Type: models.RenterTypePlain, Value: "John"},
+    Title:               "Equipment loan",
+    Renter:              renter,
+    References:          references,
+    IssueDate:           "2099-01-01",
+    DueDate:             "2099-01-02",
+    ResponsibleUserUUID: "responsible-user-uuid",
+    Attachments:         []string{},
 })
-rc, err := c.RentalCaseGet(ctx, uuid)
-cases, err := c.RentalCasesList(ctx, nil)
-err = c.RentalCaseUpdate(ctx, uuid, models.UpdateRentalCase{Comment: &comment})
+if err != nil {
+    log.Fatal(err)
+}
+
+// Send the complete desired state, even when changing only the comment.
+err = c.RentalCaseUpdate(ctx, uuid, models.UpdateRentalCase{
+    Title:               "Equipment loan",
+    Renter:              renter,
+    References:          references,
+    IssueDate:           "2099-01-01",
+    DueDate:             "2099-01-02",
+    ResponsibleUserUUID: "responsible-user-uuid",
+    Attachments:         []string{},
+    Comment:             "Updated pickup instructions",
+})
+if err != nil {
+    log.Fatal(err)
+}
 err = c.RentalCaseDelete(ctx, uuid)
 ```
 
@@ -189,6 +242,32 @@ updated, err := c.RoomPatch(ctx, uuid, map[string]any{"name": "Lab"})
 err = c.RoomDelete(ctx, uuid)
 count, err := c.RoomsCount(ctx, nil)
 ```
+
+### Persons and Flat Field Maps
+
+Persons, rooms, and locations are decoded as flat template-defined field maps,
+without `{uuid, fields}` envelope unwrapping. Person typed convenience fields
+use their field keys (including `person_uuid`); no `uuid` alias is applied.
+`Person.Fields` preserves the entire flat map, including custom fields and attachments.
+
+### Product Catalog
+
+Requires the instance's product catalog feature and appropriate permissions.
+
+```go
+page, err := c.CatalogItemsList(ctx, &models.ListOptions{Page: 1, PerPage: 25})
+item, err := c.CatalogItemGet(ctx, "catalog-item-uuid")
+uuid, err := c.CatalogItemCreate(ctx, map[string]any{
+    "catalog_object_inventory_name": "Laptop",
+})
+err = c.CatalogItemUpdate(ctx, uuid, item.Fields)
+err = c.CatalogItemDelete(ctx, uuid)
+// page.Items, page.Page, page.PerPage, page.Total, page.Sort
+```
+
+Updates use PUT and replace the complete field state: omitted fields are emptied.
+Object field keys use `catalog_object_`; catalog metadata keys have no prefix.
+Updating or deleting a catalog item does not modify objects created from it.
 
 ### Users
 
@@ -288,6 +367,8 @@ if err != nil {
     if errors.As(err, &apiErr) {
         fmt.Println(apiErr.StatusCode) // 404
         fmt.Println(apiErr.Body)       // response body
+        // Response headers are preserved on errors as well as successful responses.
+        fmt.Println(apiErr.Header.Get("X-Request-ID")) // optional response header
         if apiErr.IsStatusCode(404) {
             // handle not found
         }
@@ -295,18 +376,71 @@ if err != nil {
 }
 ```
 
+### Retry-After on HTTP 429
+
+`APIError.Header` retains a copy of the response headers. `RetryAfter(now)` parses
+the standard `Retry-After` header as either seconds or an HTTP date:
+
+```go
+var apiErr *models.APIError
+if errors.As(err, &apiErr) && apiErr.IsRateLimited() {
+    now := time.Now()
+    if delay, ok := apiErr.RetryAfter(now); ok {
+        retryAt := now.Add(delay)
+        fmt.Printf("Requeue this operation no earlier than %s\n", retryAt)
+        // Schedule it in your application's retry queue; do not discard the item.
+    } else {
+        // Missing or invalid header: apply your application's bounded backoff policy.
+    }
+}
+```
+
+Past dates produce a zero delay. Missing, repeated, invalid or overflowing values
+return `ok=false`. The helper also works on other API errors with this header
+(for example HTTP 503). It does not sleep or retry. The SDK sends each operation
+once; the application decides whether it is safe to retry and must respect its
+context, cancellation and retry limits. Headers are not included in `Error()` text.
+
 ## Pagination
 
 Most list endpoints support pagination via `ListOptions.Page` and `ListOptions.PerPage`. Users use a dedicated `UserListOptions` struct.
 
 ## Scope & Limitations
 
+### Rate Limiting
+
+Clients default to **200 requests per minute**, evenly spaced (one every 300 ms)
+without bursts. The first request is immediate. Authentication, uploads, and
+downloads share the same per-client limit. Waiting respects context cancellation
+and deadlines. Concurrent requests are admitted in FIFO enqueue order, so new
+arrivals cannot overtake waiting requests. Canceled waiters are removed without
+consuming a request slot. Separate client instances have independent limits.
+
+```go
+// Override the limit (requests per minute).
+c := client.New("https://example.seventhings.com", client.WithRateLimit(100))
+
+// Disable throttling.
+c = client.New("https://example.seventhings.com", client.WithRateLimit(0))
+```
+
+The same option works with `NewWithToken` and `NewWithCredentials`. Throttling
+does not automatically retry API rate-limit errors (HTTP 429).
+
 - **No automatic token refresh.** Call `c.Refresh(ctx, refreshToken)` manually when the access token expires.
 - **No automatic retry.** Implement your own retry logic for transient failures.
-- **No rate limiting.** The client does not throttle requests.
 - **CircularityHub uses integer IDs** while all other modules use UUID strings.
 
 ## Testing
+
+For an executable live smoke test, see [`examples/demo`](examples/demo/README.md).
+It covers catalog CRUD, timed rentals, custom thumbnails, optional reminders and
+the configurable rate limit, in addition to the existing SDK modules.
+
+```sh
+go build -o bin/seventhings-demo ./examples/demo
+./bin/seventhings-demo -help
+```
 
 ### Unit Tests
 
@@ -325,6 +459,12 @@ go test ./client -run TestObjectCreate
 ### Integration Tests
 
 Integration tests run against a live seventhings instance and are gated behind the `integration` build tag. They are skipped automatically when the required environment variables are not set.
+
+Use a test instance: some existing tests create persistent users, uploaded files,
+or field definitions, and CircularityHub order tests check out existing items.
+The upgrade CRUD tests create their own catalog items, objects, tasks, and rentals
+and clean them up. The thumbnail test leaves an uploaded image because the API
+has no file-delete endpoint.
 
 ```sh
 SEVENTHINGS_BASE_URL=https://example.seventhings.com \
@@ -347,6 +487,8 @@ go test -tags=integration -v -run TestIntegrationLocationsCRUD ./...
 | **Auth** | `TestIntegrationAuth` | Login, token presence |
 | | `TestIntegrationAuthRefreshAndRevoke` | Refresh token flow, revoke tokens |
 | **Ping** | `TestIntegrationPing` | Unauthenticated health check |
+| **Rate limiting** | `TestIntegrationRateLimit` | Concurrent live requests spaced at the default 200/min and overridden 400/min |
+| **Error headers** | `TestIntegrationAPIErrorHeaders` | Real error headers retained on 404; no deliberate live rate-limit overload |
 | **Objects** | `TestIntegrationObjects` | Full CRUD cycle (create, get, list, patch, delete) |
 | | `TestIntegrationObjectsListWithFilters` | `ListOptions` with `FilterEq` and `Sort` |
 | | `TestIntegrationObjectsCount` | Count with and without filters |
@@ -355,14 +497,18 @@ go test -tags=integration -v -run TestIntegrationLocationsCRUD ./...
 | **Locations** | `TestIntegrationLocationsCRUD` | Create, get, patch, list, count, delete |
 | **Rooms** | `TestIntegrationRoomsCRUD` | Create (with dynamic mandatory fields), get, patch, list, count, delete |
 | **Tasks** | `TestIntegrationTasks` | Full CRUD cycle |
+| | `TestIntegrationTaskOptionalReminders` | Omitted, empty, and zero-interval reminders against the live API |
 | | `TestIntegrationTaskUpdate` | Update title and comment via `TaskUpdate` |
 | | `TestIntegrationTaskStatusTransition` | Close and re-open via `TaskUpdateStatus` |
 | | `TestIntegrationTasksListWithFilters` | `TaskListOptions` with status, deadline range, reference type |
 | **Rentals** | `TestIntegrationRentals` | List rental cases |
+| | `TestIntegrationTimedRentalCRUD` | Timed create/update, offset timestamps, conversion to full-day, delete |
 | | `TestIntegrationRentalsCRUD` | Create, get, update, list, delete (skips if instance schema doesn't support it) |
+| **Catalog** | `TestIntegrationCatalogItemsCRUD` | Create, get, full-state update, filtered list, delete and verify 404 |
 | **Users** | `TestIntegrationUsers` | List users |
 | | `TestIntegrationUserGetAndOptions` | Get by UUID, get by ID, list with pagination and sort options |
 | **Files** | `TestIntegrationFiles` | List files |
+| | `TestIntegrationThumbnailCustomSize` | Upload image, verify custom dimensions and cached thumbnail |
 | | `TestIntegrationFileUploadAndDownload` | Upload, get metadata, download data and thumbnail |
 | **Field Definitions** | `TestIntegrationFieldDefinitions` | List field definitions |
 | | `TestIntegrationFieldDefinitionsCRUD` | Create, get, update, list for both asset and room templates |

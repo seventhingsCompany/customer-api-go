@@ -75,7 +75,7 @@ func TestRentalCaseCreateLocation(t *testing.T) {
 	c := newTestClient(t, server)
 	c.SetToken("tok")
 
-	uuid, err := c.RentalCaseCreate(context.Background(), models.CreateRentalCase{})
+	uuid, err := c.RentalCaseCreate(context.Background(), models.CreateRentalCase{Renter: &models.RentalCaseRenter{Type: models.RenterTypePlain, Value: "John"}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -169,7 +169,7 @@ func TestRentalCaseUpdatePUT204(t *testing.T) {
 	c := newTestClient(t, server)
 	c.SetToken("tok")
 
-	err := c.RentalCaseUpdate(context.Background(), "rc1", models.UpdateRentalCase{Comment: "updated"})
+	err := c.RentalCaseUpdate(context.Background(), "rc1", models.UpdateRentalCase{Comment: "updated", Renter: &models.RentalCaseRenter{Type: models.RenterTypePlain, Value: "John"}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -226,7 +226,7 @@ func TestRentalCaseCreateError500(t *testing.T) {
 	c := newTestClient(t, server)
 	c.SetToken("tok")
 
-	_, err := c.RentalCaseCreate(context.Background(), models.CreateRentalCase{})
+	_, err := c.RentalCaseCreate(context.Background(), models.CreateRentalCase{Renter: &models.RentalCaseRenter{Type: models.RenterTypePlain, Value: "John"}})
 	if err == nil {
 		t.Fatal("expected error")
 	}
@@ -246,7 +246,7 @@ func TestRentalCaseUpdateError500(t *testing.T) {
 	c := newTestClient(t, server)
 	c.SetToken("tok")
 
-	err := c.RentalCaseUpdate(context.Background(), "rc1", models.UpdateRentalCase{Comment: "updated"})
+	err := c.RentalCaseUpdate(context.Background(), "rc1", models.UpdateRentalCase{Comment: "updated", Renter: &models.RentalCaseRenter{Type: models.RenterTypePlain, Value: "John"}})
 	if err == nil {
 		t.Fatal("expected error")
 	}
