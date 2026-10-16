@@ -441,8 +441,8 @@ go test -tags=integration -v -run TestIntegrationLocationsCRUD ./...
 | | `TestIntegrationTasksListWithFilters` | `TaskListOptions` with status, deadline range, reference type |
 | **Rentals** | `TestIntegrationRentals` | List rental cases |
 | | `TestIntegrationTimedRentalCRUD` | Timed create/update, offset timestamps, conversion to full-day, delete |
-| **Catalog** | `TestIntegrationCatalogItemsCRUD` | Create, get, full-state update, filtered list, delete and verify 404 |
 | | `TestIntegrationRentalsCRUD` | Create, get, update, list, delete (skips if instance schema doesn't support it) |
+| **Catalog** | `TestIntegrationCatalogItemsCRUD` | Create, get, full-state update, filtered list, delete and verify 404 |
 | **Users** | `TestIntegrationUsers` | List users |
 | | `TestIntegrationUserGetAndOptions` | Get by UUID, get by ID, list with pagination and sort options |
 | **Files** | `TestIntegrationFiles` | List files |
