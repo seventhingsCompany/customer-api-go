@@ -113,7 +113,8 @@ Creates a temporary reference object and a timed rental with an offset timestamp
 Verifies equivalent timestamps after UTC normalization, extends the exclusive return
 time, converts to a full-day rental and verifies that timestamps become null.
 Deletes both rental and object. A renter is supplied because the current server
-returns HTTP 500 when the spec's optional renter is omitted.
+returns HTTP 500 when the spec's optional renter is omitted. SDK create/update calls
+reject nil renters locally with `client.ErrRentalCaseRenterRequired` before sending HTTP.
 
 ### 9. Custom thumbnail
 

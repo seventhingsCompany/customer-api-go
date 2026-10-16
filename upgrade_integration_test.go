@@ -13,6 +13,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/SeventhingsCompany/customer-api-go/client"
 	"github.com/SeventhingsCompany/customer-api-go/models"
 )
 
@@ -82,6 +83,9 @@ func TestIntegrationCatalogItemsCRUD(t *testing.T) {
 func TestIntegrationTimedRentalCRUD(t *testing.T) {
 	c := integrationClient(t)
 	ctx := t.Context()
+	if _, err := c.RentalCaseCreate(ctx, models.CreateRentalCase{}); !errors.Is(err, client.ErrRentalCaseRenterRequired) {
+		t.Fatalf("missing renter on create must fail locally: %v", err)
+	}
 	objectUUID, err := c.ObjectCreate(ctx, map[string]any{"inventory_name": "sdk-timed-rental-" + uniqueSuffix(), "barcode": "SDK-TIMED-" + uniqueSuffix()})
 	if err != nil {
 		t.Fatal(err)
@@ -145,6 +149,10 @@ func TestIntegrationTimedRentalCRUD(t *testing.T) {
 				t.Fatalf("timestamp = %s, want %s", *pair.got, pair.want)
 			}
 		}
+	}
+	verify(issue, due, false)
+	if err := c.RentalCaseUpdate(ctx, uuid, models.UpdateRentalCase{Comment: "must not be sent"}); !errors.Is(err, client.ErrRentalCaseRenterRequired) {
+		t.Fatalf("missing renter on update must fail locally: %v", err)
 	}
 	verify(issue, due, false)
 	newDue := "2099-01-01T13:00:00+02:00"

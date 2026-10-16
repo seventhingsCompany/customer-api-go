@@ -89,6 +89,7 @@ type RentalCase struct {
 }
 
 // CreateRentalCase is the request body for creating a rental case.
+// SDK create calls require a non-nil Renter to avoid a server-side failure.
 type CreateRentalCase struct {
 	// Omit IsFullDay to let the API infer the kind from IssueAt and DueAt.
 	IsFullDay           *bool                      `json:"is_full_day,omitempty"`
@@ -106,7 +107,8 @@ type CreateRentalCase struct {
 	Attachments         []string                   `json:"attachments"`
 }
 
-// UpdateRentalCase is the request body for updating a rental case.
+// UpdateRentalCase is the complete replacement body for updating a rental case.
+// SDK update calls require a non-nil Renter to avoid a server-side failure.
 type UpdateRentalCase struct {
 	// Omit the kind and times to retain the stored kind and move times to the dates.
 	IsFullDay           *bool                      `json:"is_full_day,omitempty"`

@@ -179,13 +179,45 @@ err = c.TaskDelete(ctx, uuid)
 a timed rental; the return time is exclusive. Leave these fields nil to use
 the API's inference/preservation rules. Responses include all three fields.
 
+**`RentalCaseUpdate` is a full replacement (PUT), not a partial patch.** Send all
+required fields and any optional values you want to retain. Both create and update
+require a non-nil `Renter` in the SDK: the current server returns HTTP 500 when it
+is omitted, despite the API description marking it optional. Missing renters return
+`client.ErrRentalCaseRenterRequired` locally without an HTTP request (detectable with
+`errors.Is`).
+
 ```go
+references := []models.RentalCaseReferenceInput{
+    {Type: models.RentalCaseReferenceTypeAsset, UUID: "object-uuid"},
+}
+renter := &models.RentalCaseRenter{Type: models.RenterTypePlain, Value: "John"}
 uuid, err := c.RentalCaseCreate(ctx, models.CreateRentalCase{
-    Renter: &models.RentalCaseRenter{Type: models.RenterTypePlain, Value: "John"},
+    Title:               "Equipment loan",
+    Renter:              renter,
+    References:          references,
+    IssueDate:           "2099-01-01",
+    DueDate:             "2099-01-02",
+    ResponsibleUserUUID: "responsible-user-uuid",
+    Attachments:         []string{},
 })
-rc, err := c.RentalCaseGet(ctx, uuid)
-cases, err := c.RentalCasesList(ctx, nil)
-err = c.RentalCaseUpdate(ctx, uuid, models.UpdateRentalCase{Comment: comment})
+if err != nil {
+    log.Fatal(err)
+}
+
+// Send the complete desired state, even when changing only the comment.
+err = c.RentalCaseUpdate(ctx, uuid, models.UpdateRentalCase{
+    Title:               "Equipment loan",
+    Renter:              renter,
+    References:          references,
+    IssueDate:           "2099-01-01",
+    DueDate:             "2099-01-02",
+    ResponsibleUserUUID: "responsible-user-uuid",
+    Attachments:         []string{},
+    Comment:             "Updated pickup instructions",
+})
+if err != nil {
+    log.Fatal(err)
+}
 err = c.RentalCaseDelete(ctx, uuid)
 ```
 

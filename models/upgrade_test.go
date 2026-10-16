@@ -87,8 +87,9 @@ func TestCatalogEmptySorting(t *testing.T) {
 	}
 }
 
-func TestRentalRequestsOmitUnsetRenter(t *testing.T) {
-	for _, request := range []any{CreateRentalCase{}, UpdateRentalCase{}} {
+func TestRentalRequestsEncodeRenter(t *testing.T) {
+	renter := &RentalCaseRenter{Type: RenterTypePlain, Value: "SDK test"}
+	for _, request := range []any{CreateRentalCase{Renter: renter}, UpdateRentalCase{Renter: renter}} {
 		data, err := json.Marshal(request)
 		if err != nil {
 			t.Fatal(err)
@@ -97,8 +98,12 @@ func TestRentalRequestsOmitUnsetRenter(t *testing.T) {
 		if err := json.Unmarshal(data, &raw); err != nil {
 			t.Fatal(err)
 		}
-		if _, ok := raw["renter"]; ok {
-			t.Errorf("unset optional renter must be omitted: %s", data)
+		var got RentalCaseRenter
+		if err := json.Unmarshal(raw["renter"], &got); err != nil {
+			t.Fatal(err)
+		}
+		if got != *renter {
+			t.Errorf("renter = %+v, want %+v", got, *renter)
 		}
 	}
 }

@@ -4,9 +4,15 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 
 	"github.com/SeventhingsCompany/customer-api-go/models"
 )
+
+// ErrRentalCaseRenterRequired is returned before sending a rental create or
+// update without a renter. Although the API description marks renter optional,
+// the current server rejects null and fails with HTTP 500 when it is omitted.
+var ErrRentalCaseRenterRequired = errors.New("rental case renter is required: provide a renter with type and value; the current API fails when renter is omitted")
 
 // RentalCasesList returns a list of rental cases.
 func (c *Client) RentalCasesList(ctx context.Context, opts *models.ListOptions) ([]models.RentalCase, error) {
@@ -28,7 +34,11 @@ func (c *Client) RentalCasesList(ctx context.Context, opts *models.ListOptions) 
 }
 
 // RentalCaseCreate creates a new rental case and returns its UUID.
+// A nil Renter returns ErrRentalCaseRenterRequired without sending a request.
 func (c *Client) RentalCaseCreate(ctx context.Context, input models.CreateRentalCase) (string, error) {
+	if input.Renter == nil {
+		return "", ErrRentalCaseRenterRequired
+	}
 	body, err := json.Marshal(input)
 	if err != nil {
 		return "", err
@@ -53,8 +63,13 @@ func (c *Client) RentalCaseGet(ctx context.Context, uuid string) (*models.Rental
 	return &result, nil
 }
 
-// RentalCaseUpdate updates a rental case by UUID (PUT, returns 204).
+// RentalCaseUpdate replaces a rental case by UUID (PUT, returns 204).
+// Send the complete state, not a partial patch: omitted values may be cleared.
+// A nil Renter returns ErrRentalCaseRenterRequired without sending a request.
 func (c *Client) RentalCaseUpdate(ctx context.Context, uuid string, input models.UpdateRentalCase) error {
+	if input.Renter == nil {
+		return ErrRentalCaseRenterRequired
+	}
 	body, err := json.Marshal(input)
 	if err != nil {
 		return err
