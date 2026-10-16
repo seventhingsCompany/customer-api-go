@@ -181,6 +181,7 @@ func (c *Client) do(req *http.Request) (*Response, error) {
 			StatusCode: resp.StatusCode,
 			Status:     resp.Status,
 			Body:       string(bodyBytes),
+			Header:     resp.Header.Clone(),
 		}
 	}
 

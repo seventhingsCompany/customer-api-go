@@ -367,12 +367,39 @@ if err != nil {
     if errors.As(err, &apiErr) {
         fmt.Println(apiErr.StatusCode) // 404
         fmt.Println(apiErr.Body)       // response body
+        // Response headers are preserved on errors as well as successful responses.
+        fmt.Println(apiErr.Header.Get("X-Request-ID")) // optional response header
         if apiErr.IsStatusCode(404) {
             // handle not found
         }
     }
 }
 ```
+
+### Retry-After on HTTP 429
+
+`APIError.Header` retains a copy of the response headers. `RetryAfter(now)` parses
+the standard `Retry-After` header as either seconds or an HTTP date:
+
+```go
+var apiErr *models.APIError
+if errors.As(err, &apiErr) && apiErr.IsRateLimited() {
+    now := time.Now()
+    if delay, ok := apiErr.RetryAfter(now); ok {
+        retryAt := now.Add(delay)
+        fmt.Printf("Requeue this operation no earlier than %s\n", retryAt)
+        // Schedule it in your application's retry queue; do not discard the item.
+    } else {
+        // Missing or invalid header: apply your application's bounded backoff policy.
+    }
+}
+```
+
+Past dates produce a zero delay. Missing, repeated, invalid or overflowing values
+return `ok=false`. The helper also works on other API errors with this header
+(for example HTTP 503). It does not sleep or retry. The SDK sends each operation
+once; the application decides whether it is safe to retry and must respect its
+context, cancellation and retry limits. Headers are not included in `Error()` text.
 
 ## Pagination
 
@@ -461,6 +488,7 @@ go test -tags=integration -v -run TestIntegrationLocationsCRUD ./...
 | | `TestIntegrationAuthRefreshAndRevoke` | Refresh token flow, revoke tokens |
 | **Ping** | `TestIntegrationPing` | Unauthenticated health check |
 | **Rate limiting** | `TestIntegrationRateLimit` | Concurrent live requests spaced at the default 200/min and overridden 400/min |
+| **Error headers** | `TestIntegrationAPIErrorHeaders` | Real error headers retained on 404; no deliberate live rate-limit overload |
 | **Objects** | `TestIntegrationObjects` | Full CRUD cycle (create, get, list, patch, delete) |
 | | `TestIntegrationObjectsListWithFilters` | `ListOptions` with `FilterEq` and `Sort` |
 | | `TestIntegrationObjectsCount` | Count with and without filters |

@@ -35,6 +35,9 @@ for options. The default limit is **200 requests per minute** per client, evenly
 spaced without bursts; all requests, including authentication and file downloads,
 share it. Waiting respects context cancellation; concurrent waiters are served
 in FIFO enqueue order, and canceled waiters do not consume a request slot.
+If an operation returns HTTP 429 with a valid `Retry-After` header, the demo
+prints the parsed delay before exiting with the error. It does not automatically
+retry or intentionally trigger rate-limit responses on the live instance.
 
 ```sh
 ./bin/seventhings-demo -rate-limit 100 # Override requests per minute

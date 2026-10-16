@@ -16,6 +16,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"flag"
 	"fmt"
 	"log"
@@ -423,14 +424,18 @@ func requireEnv(key string) string {
 }
 
 func must[T any](val T, err error) T {
-	if err != nil {
-		log.Fatalf("ERROR: %v", err)
-	}
+	mustDo(err)
 	return val
 }
 
 func mustDo(err error) {
 	if err != nil {
+		var apiErr *models.APIError
+		if errors.As(err, &apiErr) && apiErr.IsRateLimited() {
+			if delay, ok := apiErr.RetryAfter(time.Now()); ok {
+				pf("Rate", "HTTP 429: retry no earlier than %s from now; this demo does not retry automatically", delay)
+			}
+		}
 		log.Fatalf("ERROR: %v", err)
 	}
 }
