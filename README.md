@@ -385,7 +385,9 @@ Most list endpoints support pagination via `ListOptions.Page` and `ListOptions.P
 Clients default to **200 requests per minute**, evenly spaced (one every 300 ms)
 without bursts. The first request is immediate. Authentication, uploads, and
 downloads share the same per-client limit. Waiting respects context cancellation
-and deadlines. Separate client instances have independent limits.
+and deadlines. Concurrent requests are admitted in FIFO enqueue order, so new
+arrivals cannot overtake waiting requests. Canceled waiters are removed without
+consuming a request slot. Separate client instances have independent limits.
 
 ```go
 // Override the limit (requests per minute).

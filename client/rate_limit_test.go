@@ -5,6 +5,7 @@ import (
 	"errors"
 	"io"
 	"net/http"
+	"reflect"
 	"strconv"
 	"strings"
 	"sync"
@@ -178,6 +179,141 @@ func TestRateLimitCredentialsAndIndependentClients(t *testing.T) {
 		}
 		if elapsed := time.Since(start); elapsed != 0 {
 			t.Fatalf("independent client was throttled: %s", elapsed)
+		}
+	})
+}
+
+func TestRateLimitFIFO(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		var mu sync.Mutex
+		var order []string
+		httpClient := &http.Client{Transport: rateLimitTransport(func(req *http.Request) (*http.Response, error) {
+			mu.Lock()
+			order = append(order, req.URL.Path)
+			mu.Unlock()
+			return &http.Response{StatusCode: 200, Header: make(http.Header), Body: http.NoBody}, nil
+		})}
+		c := New("https://example.test", WithHTTPClient(httpClient))
+		if _, err := c.Get(t.Context(), "prime"); err != nil {
+			t.Fatal(err)
+		}
+		want := []string{"/customer-api/v1/prime"}
+		var wg sync.WaitGroup
+		for i := range 30 {
+			path := "queued-" + strconv.Itoa(i)
+			want = append(want, "/customer-api/v1/"+path)
+			wg.Go(func() {
+				if _, err := c.Get(t.Context(), path); err != nil {
+					t.Error(err)
+				}
+			})
+			// Establish enqueue order before advancing the virtual clock.
+			synctest.Wait()
+			// Keep new requests arriving faster than the limiter can serve them.
+			time.Sleep(50 * time.Millisecond)
+		}
+		wg.Wait()
+		if !reflect.DeepEqual(order, want) {
+			t.Fatalf("requests overtook earlier waiters:\n got %v\nwant %v", order, want)
+		}
+	})
+}
+
+func TestRateLimitFIFOCancellation(t *testing.T) {
+	for _, canceled := range []int{0, 1, 2} {
+		t.Run(strconv.Itoa(canceled), func(t *testing.T) {
+			synctest.Test(t, func(t *testing.T) {
+				limiter := newRateLimiter(200)
+				if err := limiter.wait(t.Context()); err != nil {
+					t.Fatal(err)
+				}
+				start := time.Now()
+				var mu sync.Mutex
+				var order []int
+				var wg sync.WaitGroup
+				contexts := make([]context.Context, 3)
+				cancels := make([]context.CancelFunc, 3)
+				for i := range contexts {
+					contexts[i], cancels[i] = context.WithCancel(t.Context())
+					defer cancels[i]()
+					wg.Go(func() {
+						err := limiter.wait(contexts[i])
+						if i == canceled {
+							if !errors.Is(err, context.Canceled) {
+								t.Errorf("canceled wait error = %v", err)
+							}
+							return
+						}
+						if err != nil {
+							t.Error(err)
+							return
+						}
+						mu.Lock()
+						order = append(order, i)
+						mu.Unlock()
+					})
+					synctest.Wait()
+				}
+				time.Sleep(100 * time.Millisecond)
+				cancels[canceled]()
+				synctest.Wait()
+				wg.Wait()
+				var want []int
+				for i := range contexts {
+					if i != canceled {
+						want = append(want, i)
+					}
+				}
+				if !reflect.DeepEqual(order, want) {
+					t.Fatalf("order = %v, want %v", order, want)
+				}
+				if elapsed := time.Since(start); elapsed != 600*time.Millisecond {
+					t.Fatalf("canceled waiter consumed a slot: %s", elapsed)
+				}
+				// A drained queue must remain usable.
+				if err := limiter.wait(t.Context()); err != nil {
+					t.Fatal(err)
+				}
+				if elapsed := time.Since(start); elapsed != 900*time.Millisecond {
+					t.Fatalf("unexpected next slot: %s", elapsed)
+				}
+			})
+		})
+	}
+}
+
+func TestRateLimitFIFOAllWaitersCanceled(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		limiter := newRateLimiter(200)
+		if err := limiter.wait(t.Context()); err != nil {
+			t.Fatal(err)
+		}
+		start := time.Now()
+		ctx, cancel := context.WithCancel(t.Context())
+		defer cancel()
+		var wg sync.WaitGroup
+		for range 10 {
+			wg.Go(func() {
+				if err := limiter.wait(ctx); !errors.Is(err, context.Canceled) {
+					t.Errorf("wait error = %v", err)
+				}
+			})
+			synctest.Wait()
+		}
+		time.Sleep(100 * time.Millisecond)
+		cancel()
+		wg.Wait()
+		limiter.mu.Lock()
+		remaining := limiter.waiters.Len()
+		limiter.mu.Unlock()
+		if remaining != 0 {
+			t.Fatalf("canceled waiters left in queue: %d", remaining)
+		}
+		if err := limiter.wait(t.Context()); err != nil {
+			t.Fatal(err)
+		}
+		if elapsed := time.Since(start); elapsed != 300*time.Millisecond {
+			t.Fatalf("canceled queue consumed slots: %s", elapsed)
 		}
 	})
 }

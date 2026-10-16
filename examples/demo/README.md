@@ -33,7 +33,8 @@ set +a
 The binary is written to `bin/seventhings-demo` (gitignored). Run `./bin/seventhings-demo -help`
 for options. The default limit is **200 requests per minute** per client, evenly
 spaced without bursts; all requests, including authentication and file downloads,
-share it. Waiting respects context cancellation.
+share it. Waiting respects context cancellation; concurrent waiters are served
+in FIFO enqueue order, and canceled waiters do not consume a request slot.
 
 ```sh
 ./bin/seventhings-demo -rate-limit 100 # Override requests per minute
