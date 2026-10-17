@@ -5,8 +5,6 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
-	"net/url"
-	"strings"
 
 	"github.com/SeventhingsCompany/customer-api-go/models"
 )
@@ -33,35 +31,6 @@ type ssoLoginRequest struct {
 }
 
 const authTokenPath = "auth_token"
-
-// LoginAuthorizationCode exchanges an OAuth 2.1 authorization code using PKCE.
-// redirectURI must match the URI used for authorization; codeVerifier is the
-// original verifier used to generate the authorization request's challenge.
-func (c *Client) LoginAuthorizationCode(ctx context.Context, code, codeVerifier, redirectURI, clientID string) (*models.TokenResponse, error) {
-	c.clientID = clientID
-	form := url.Values{
-		"grant_type":    {"authorization_code"},
-		"code":          {code},
-		"code_verifier": {codeVerifier},
-		"redirect_uri":  {redirectURI},
-		"client_id":     {clientID},
-	}
-	req, err := c.newRequest(ctx, http.MethodPost, authTokenPath, strings.NewReader(form.Encode()), false)
-	if err != nil {
-		return nil, err
-	}
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	resp, err := c.do(req)
-	if err != nil {
-		return nil, err
-	}
-	var tok models.TokenResponse
-	if err := DecodeJSON(resp, &tok); err != nil {
-		return nil, err
-	}
-	c.token = tok.AccessToken
-	return &tok, nil
-}
 
 // postAuthToken marshals payload as JSON, sends an unauthenticated POST to
 // the auth_token endpoint, decodes the response, and stores the access token.
