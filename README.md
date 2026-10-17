@@ -45,14 +45,6 @@ c := client.New("https://example.seventhings.com")
 tok, err := c.LoginSSO(ctx, models.SSOProviderAzure, "auth-code", "client-id", nil)
 ```
 
-### OAuth Authorization Code + PKCE
-
-```go
-tok, err := c.LoginAuthorizationCode(ctx, "code", "original-code-verifier", "https://app.example/callback", "client-id")
-```
-
-Uses the form-encoded token endpoint and stores the access token and client ID for refresh.
-
 ## Usage
 
 ### Ping

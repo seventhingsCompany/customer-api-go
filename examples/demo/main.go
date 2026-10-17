@@ -41,14 +41,7 @@ func main() {
 	section("Auth", "Logging in…")
 
 	c := client.New(baseURL, client.WithClientID(clientID), client.WithRateLimit(*requestsPerMinute))
-	var tok *models.TokenResponse
-	var err error
-	if code := os.Getenv("SEVENTHINGS_AUTH_CODE"); code != "" {
-		tok, err = c.LoginAuthorizationCode(ctx, code, requireEnv("SEVENTHINGS_CODE_VERIFIER"), requireEnv("SEVENTHINGS_REDIRECT_URI"), clientID)
-		pf("Auth", "Using OAuth authorization code + PKCE")
-	} else {
-		tok, err = c.Login(ctx, requireEnv("SEVENTHINGS_USERNAME"), requireEnv("SEVENTHINGS_PASSWORD"), clientID)
-	}
+	tok, err := c.Login(ctx, requireEnv("SEVENTHINGS_USERNAME"), requireEnv("SEVENTHINGS_PASSWORD"), clientID)
 	mustDo(err)
 	pf("Auth", "Logged in — user_id=%d", tok.UserID)
 	if *requestsPerMinute > 0 {

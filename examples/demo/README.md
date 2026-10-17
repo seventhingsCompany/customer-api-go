@@ -44,15 +44,6 @@ retry or intentionally trigger rate-limit responses on the live instance.
 ./bin/seventhings-demo -rate-limit 0   # Disable throttling
 ```
 
-### Optional PKCE login
-
-To exercise `LoginAuthorizationCode`, set `SEVENTHINGS_AUTH_CODE`,
-`SEVENTHINGS_CODE_VERIFIER`, and `SEVENTHINGS_REDIRECT_URI`, plus the usual base URL
-and client ID. The demo then uses PKCE instead of username/password. Use a fresh
-authorization code and the original verifier and redirect URI from your application's
-authorization flow; codes are single-use. Without these credentials, PKCE success
-cannot be live-tested. No tokens or passwords are printed.
-
 ## What it does
 
 Run against a **test instance**: the demo creates and modifies temporary records.
@@ -63,7 +54,7 @@ records are only read; no login users, schema fields or marketplace orders are c
 
 ### 1. Auth
 
-Logs in with password credentials (or optional PKCE) and prints the user ID and
+Logs in with password credentials and prints the user ID and
 configured rate limit, without printing access tokens.
 
 ### 2. Objects — CRUD

@@ -40,7 +40,6 @@ func TestDefaultRateLimitAcrossRequestTypes(t *testing.T) {
 				return err
 			},
 			func() error { _, err := c.Login(ctx, "user", "password", "client"); return err },
-			func() error { _, err := c.LoginAuthorizationCode(ctx, "code", "verifier", "uri", "client"); return err },
 		}
 		for _, call := range calls {
 			if err := call(); err != nil {

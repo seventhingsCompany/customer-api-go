@@ -71,35 +71,6 @@ func TestCatalogItemsCRUD(t *testing.T) {
 	}
 }
 
-func TestLoginAuthorizationCode(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if err := r.ParseForm(); err != nil {
-			t.Error(err)
-		}
-		body := make(map[string]string)
-		for key := range r.PostForm {
-			body[key] = r.PostForm.Get(key)
-		}
-		if r.Header.Get("Content-Type") != "application/x-www-form-urlencoded" || r.Header.Get("Authorization") != "" {
-			t.Errorf("headers = %v", r.Header)
-		}
-		want := map[string]string{"grant_type": "authorization_code", "code": "code", "code_verifier": "verifier", "redirect_uri": "https://example.test/callback", "client_id": "client"}
-		if r.Method != http.MethodPost || r.URL.Path != "/customer-api/v1/auth_token" || !reflect.DeepEqual(body, want) {
-			t.Errorf("request = %s %s %+v", r.Method, r.URL, body)
-		}
-		fmt.Fprint(w, `{"access_token":"access","refresh_token":"refresh"}`)
-	}))
-	defer server.Close()
-	c := newTestClient(t, server)
-	tok, err := c.LoginAuthorizationCode(t.Context(), "code", "verifier", "https://example.test/callback", "client")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if tok.AccessToken != "access" || c.token != "access" || c.clientID != "client" {
-		t.Fatalf("token = %+v", tok)
-	}
-}
-
 func TestFileGetThumbnailWithSize(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/customer-api/v1/file/f-1/thumbnail" || r.URL.Query().Get("width") != "320" || r.URL.Query().Get("height") != "240" {
@@ -133,11 +104,7 @@ func TestUpgradeAPIErrors(t *testing.T) {
 		"catalog create": func() error { _, err := c.CatalogItemCreate(t.Context(), nil); return err },
 		"catalog update": func() error { return c.CatalogItemUpdate(t.Context(), "c-1", nil) },
 		"catalog delete": func() error { return c.CatalogItemDelete(t.Context(), "c-1") },
-		"PKCE": func() error {
-			_, err := c.LoginAuthorizationCode(t.Context(), "code", "verifier", "uri", "client")
-			return err
-		},
-		"thumbnail": func() error { _, err := c.FileGetThumbnailWithSize(t.Context(), "f-1", 100, 100); return err },
+		"thumbnail":      func() error { _, err := c.FileGetThumbnailWithSize(t.Context(), "f-1", 100, 100); return err },
 	} {
 		t.Run(name, func(t *testing.T) {
 			var apiErr *models.APIError
